@@ -77,7 +77,7 @@ class AppConfig(BaseSettings):
         env_prefix="APP_",
         extra="ignore",
     )
-    root_path: str = ""
+    root_path: str = "/api"
     title: str = "Example"
     debug: bool = True
     version: str = "0.0.1"
