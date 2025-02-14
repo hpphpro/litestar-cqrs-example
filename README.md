@@ -70,7 +70,7 @@ The application integrates with monitoring tools to provide insights into applic
  - [SQLAlchemy](https://docs.sqlalchemy.org/en/20/) ─ ORM for working with database
  - [Alembic](https://alembic.sqlalchemy.org/en/latest/) ─ A tool for database migrations
     ### Optional
-    [NATS-Client](https://nats-io.github.io/nats.py/) - A client to interact with NATS broker
+    - [NATS-Client](https://nats-io.github.io/nats.py/) - A client to interact with NATS broker
 
 ## Getting Started
 
