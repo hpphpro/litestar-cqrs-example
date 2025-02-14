@@ -1,0 +1,23 @@
+[sources.docker]
+type = "docker_logs"
+docker_host = "/var/run/docker.sock"
+include_containers = ["service.api", "service.database"]
+
+[transforms.parse_json]
+type = "remap"
+inputs = ["docker"]
+drop_on_error = false
+source = ".message = object!(parse_json(.message) ?? .message)"
+
+
+[sinks.console]
+type = "console"
+inputs = ["parse_json"]
+encoding.codec = "json"
+
+[sinks.loki]
+type = "loki"
+inputs = ["parse_json"]
+encoding.codec = "json"
+endpoint = "http://service.loki:3100"
+labels = { event = "log", container_name = "{{ container_name }}" }
