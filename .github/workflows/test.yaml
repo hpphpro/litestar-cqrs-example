@@ -36,7 +36,7 @@ jobs:
             ${{ runner.os }}-uv-cache-
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --all-groups
 
       - name: Prune UV cache
         run: uv cache prune --ci
