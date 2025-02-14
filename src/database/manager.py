@@ -60,6 +60,7 @@ class TransactionManagerImpl:
                 self._is_tx_opened = True
             elif nested and self.conn.in_transaction():
                 await self.conn.begin_nested()
+                self._is_tx_opened = True
             else:
                 raise AssertionError("You cannot start nested transaction with isolation level")
         finally:
