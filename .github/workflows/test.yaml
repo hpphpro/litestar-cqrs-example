@@ -2,54 +2,75 @@ name: ServiceTest
 
 on:
   workflow_call:
-
   pull_request:
     branches: [ main, dev ]
   push:
     branches: [ main, dev ]
 
+env:
+  UV_VERSION: 0.5
+  PYTHON_VERSION: 3.12
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      UV_CACHE_DIR: .uv-cache
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        run: pipx install uv
-      - name: Set up Python 3.12
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "uv"
-          cache-dependency-path: uv.lock
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv ${{ env.UV_VERSION }}
+        run: pipx install uv==${{ env.UV_VERSION }}
+
+      - name: Restore UV cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-cache-${{ hashFiles('**/uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-cache-
+
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: uv sync --frozen
+
+      - name: Prune UV cache
+        run: uv cache prune --ci
+
   lint:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        run: pipx install uv
-      - name: Set up Python 3.12
+
+      - name: Install uv ${{ env.UV_VERSION }}
+        run: pipx install uv==${{ env.UV_VERSION }}
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "uv"
-          cache-dependency-path: uv.lock
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Lint with pre-commit
         run: uv run pre-commit run --all-files
+
   test:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        run: pipx install uv
-      - name: Set up Python 3.12
+
+      - name: Install uv ${{ env.UV_VERSION }}
+        run: pipx install uv==${{ env.UV_VERSION }}
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "uv"
-          cache-dependency-path: uv.lock
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Test with pytest
         run: uv run pytest
