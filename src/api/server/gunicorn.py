@@ -5,7 +5,8 @@ from typing import Any
 from gunicorn.app.base import Application
 
 from src.core.config import ServerConfig
-from src.core.server._util import workers_count
+
+from ._util import workers_count
 
 
 class GunicornApplication(Application):

@@ -4,7 +4,8 @@ from granian import Granian
 from granian.constants import Interfaces
 
 from src.core.config import ServerConfig
-from src.core.server._util import workers_count
+
+from ._util import workers_count
 
 
 def run_granian(

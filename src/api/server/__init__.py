@@ -1,9 +1,10 @@
 from typing import Any
 
 from src.core.config import ServerConfig
-from src.core.server.granian import run_granian
-from src.core.server.gunicorn import run_gunicorn
-from src.core.server.uvicorn import run_uvicorn
+
+from .granian import run_granian
+from .gunicorn import run_gunicorn
+from .uvicorn import run_uvicorn
 
 
 def serve(app: Any, config: ServerConfig, suffix: str = "app", **kw: Any) -> None:
