@@ -22,7 +22,5 @@ class DeleteUserHandler(Handler[Request[None, None, State], DeleteUser, None]):
     async def __call__(
         self, request: Request[None, None, State], qc: DeleteUser, /, **kw: Any
     ) -> None:
-        async with self.gateway:
-            await self.gateway.manager.with_transaction()
-
+        async with await self.gateway.manager.with_transaction():
             await self.gateway.user.delete(**qc.as_mapping())

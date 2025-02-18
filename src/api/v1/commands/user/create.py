@@ -34,9 +34,7 @@ class CreateUserHandler(Handler[Request[None, None, State], CreateUser, dto.user
     async def __call__(
         self, request: Request[None, None, State], qc: CreateUser, /, **kw: Any
     ) -> dto.user.User:
-        async with self.gateway:
-            await self.gateway.manager.with_transaction()
-
+        async with await self.gateway.manager.with_transaction():
             result = await self.gateway.user.create(**qc.as_mapping())
 
         return dto.user.User.from_mapping(result.as_dict())

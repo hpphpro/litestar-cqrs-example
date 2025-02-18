@@ -23,7 +23,7 @@ class GetOneUserHandler(Handler[Request[None, None, State], GetOneUser, dto.user
     async def __call__(
         self, request: Request[None, None, State], qc: GetOneUser, /, **kw: Any
     ) -> dto.user.User:
-        async with self.gateway:
+        async with self.gateway.manager:
             result = await self.gateway.user.get_one(**qc.as_mapping())
 
         return dto.user.User.from_mapping(result.as_dict())
@@ -45,7 +45,7 @@ class GetManyOffsetUserHandler(
     async def __call__(
         self, request: Request[None, None, State], qc: GetManyOffsetUser, /, **kw: Any
     ) -> dto.OffsetResult[dto.user.User]:
-        async with self.gateway:
+        async with self.gateway.manager:
             result = await self.gateway.user.get_many_by_offset(**qc.as_mapping())
 
         return dto.OffsetResult[dto.user.User].from_mapping(asdict(result))

@@ -23,9 +23,7 @@ class UpdateUserHandler(Handler[Request[None, None, State], UpdateUser, dto.Stat
     async def __call__(
         self, request: Request[None, None, State], qc: UpdateUser, /, **kw: Any
     ) -> dto.Status:
-        async with self.gateway:
-            await self.gateway.manager.with_transaction()
-
+        async with await self.gateway.manager.with_transaction():
             result = await self.gateway.user.update(**{**qc.as_mapping(), **kw})
 
         return dto.Status(status=bool(result))
