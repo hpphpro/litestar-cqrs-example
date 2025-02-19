@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, overload
 
-from sqlalchemy import Select, select, true
+from sqlalchemy import ColumnExpressionArgument, Select, select, true
 from sqlalchemy.orm import RelationshipProperty, aliased, contains_eager, subqueryload
 
 from src.database._util import frozendict
@@ -19,14 +19,14 @@ from src.database.alchemy.entity import MODELS_RELATIONSHIPS_NODE, Entity
 if TYPE_CHECKING:
     from sqlalchemy.orm.strategy_options import _AbstractLoad
 
-DEFAULT_RELATIONSHIP_LOAD_LIMIT: Final[int] = 10
+DEFAULT_RELATIONSHIP_LOAD_LIMIT: Final[int] = 20
 
 
-def _bfs_search[EntityT: Entity](
-    start: type[EntityT],
+def _bfs_search[E: Entity](
+    start: type[E],
     end: str,
     node: frozendict[type[Entity], tuple[RelationshipProperty[type[Entity]]]] | None = None,
-) -> list[RelationshipProperty[EntityT]]:
+) -> list[RelationshipProperty[E]]:
     if node is None:
         node = MODELS_RELATIONSHIPS_NODE
 
@@ -76,6 +76,11 @@ def _construct_loads[E: Entity](
     relationships: list[RelationshipProperty[E]],
     order_by: tuple[str, ...],
     exclude: set[type[E]],
+    subquery_cond: frozendict[
+        str,
+        Callable[[Select[tuple[E]]], Select[tuple[E]]],
+    ]
+    | None = None,
     self_key: str | None = None,
     limit: int | None = None,
 ) -> tuple[Select[tuple[E]], _AbstractLoad | None]:
@@ -110,6 +115,9 @@ def _construct_loads[E: Entity](
                         continue
 
                     q = q.where(relationship.primaryjoin)
+                    for key, condition in (subquery_cond or {}).items():
+                        if relationship.key == key:
+                            q = condition(q)
 
                 lateral = q.lateral().alias()
                 query = query.outerjoin(lateral, true())
@@ -129,6 +137,11 @@ def select_with_relations[E: Entity](
     order_by: tuple[str, ...] = ("id",),
     limit: int | None = DEFAULT_RELATIONSHIP_LOAD_LIMIT,
     self_key: str | None = None,
+    subquery_cond: frozendict[
+        str,
+        Callable[[Select[tuple[E]]], Select[tuple[E]]],
+    ]
+    | None = None,
     _node: frozendict[type[Entity], tuple[RelationshipProperty[type[Entity]]]] | None = None,
 ) -> Select[tuple[E]]:
     if _node is None:
@@ -148,6 +161,7 @@ def select_with_relations[E: Entity](
             entity,
             query,
             result,
+            subquery_cond=subquery_cond,
             exclude=exclude,
             order_by=order_by,
             limit=limit,
@@ -160,6 +174,15 @@ def select_with_relations[E: Entity](
         query = query.options(*options)
 
     return query
+
+
+def add_conditions[E: Entity](
+    *conditions: ColumnExpressionArgument[bool],
+) -> Callable[[Select[tuple[E]]], Select[tuple[E]]]:
+    def _add(query: Select[tuple[E]]) -> Select[tuple[E]]:
+        return query.where(*conditions)
+
+    return _add
 
 
 @overload
