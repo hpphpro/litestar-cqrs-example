@@ -71,7 +71,9 @@ class BatchCreate[E: Entity](ExtendedQuery[E, Sequence[E]]):
 
     @override
     async def execute(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
-        result = await conn.execute(insert(self.entity).returning(self.entity), self._data)
+        result = await conn.execute(
+            insert(self.entity).on_conflict_do_nothing().returning(self.entity), self._data
+        )
 
         return result.scalars().all()
 
