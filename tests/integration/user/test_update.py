@@ -5,11 +5,13 @@ from litestar.testing import AsyncTestClient
 from src.api.v1.commands.user.update import UpdateUser
 from src.api.v1.commands.user.create import CreateUser
 
+from src.core.config import Config
 
-async def test_user_update_success(client: AsyncTestClient[Litestar]) -> None:
+
+async def test_user_update_success(client: AsyncTestClient[Litestar], app_config: Config) -> None:
     user = CreateUser(login="test", password="test_test")
 
-    response = await client.post("/api/v1/users", json=user.as_mapping())
+    response = await client.post(f"{app_config.app.root_path}/v1/users", json=user.as_mapping())
 
     assert response.status_code == 201
 
@@ -20,20 +22,24 @@ async def test_user_update_success(client: AsyncTestClient[Litestar]) -> None:
 
     update = UpdateUser(login="new_test")
 
-    response = await client.patch(f"/api/v1/users/{data['id']}", json=update.as_mapping())
+    response = await client.patch(
+        f"{app_config.app.root_path}/v1/users/{data['id']}", json=update.as_mapping()
+    )
 
     assert response.status_code == 200 and response.json()["status"]
 
     # ensure
-    response = await client.get(f"/api/v1/users/{data['id']}")
+    response = await client.get(f"{app_config.app.root_path}/v1/users/{data['id']}")
 
     assert response.status_code == 200 and response.json()["login"] == update.login
 
 
-async def test_user_update_same_login_failed(client: AsyncTestClient[Litestar]) -> None:
+async def test_user_update_same_login_failed(
+    client: AsyncTestClient[Litestar], app_config: Config
+) -> None:
     user = CreateUser(login="test", password="test_test")
 
-    response = await client.post("/api/v1/users", json=user.as_mapping())
+    response = await client.post(f"{app_config.app.root_path}/v1/users", json=user.as_mapping())
 
     assert response.status_code == 201
 
@@ -44,7 +50,7 @@ async def test_user_update_same_login_failed(client: AsyncTestClient[Litestar]) 
 
     user2 = CreateUser(login="test2", password="test_test")
 
-    response = await client.post("/api/v1/users", json=user2.as_mapping())
+    response = await client.post(f"{app_config.app.root_path}/v1/users", json=user2.as_mapping())
 
     assert response.status_code == 201
 
@@ -55,6 +61,8 @@ async def test_user_update_same_login_failed(client: AsyncTestClient[Litestar]) 
 
     update = UpdateUser(login="test")
 
-    response = await client.patch(f"/api/v1/users/{data['id']}", json=update.as_mapping())
+    response = await client.patch(
+        f"{app_config.app.root_path}/v1/users/{data['id']}", json=update.as_mapping()
+    )
 
     assert response.status_code == 409 or not response.json()["status"]
