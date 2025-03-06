@@ -41,7 +41,6 @@ log() {
 
 if [[ "$EUID" -ne 0 ]]; then
     log "Script should be run as root."
-    exit 1
 fi
 
 log "=== Starting the certificate creation/renewal process ==="
@@ -51,21 +50,18 @@ if [ ! -d "$WEBROOT" ]; then
     mkdir -p "$WEBROOT"
     if [[ $? -ne 0 ]]; then
         log "Failed to create webroot directory $WEBROOT."
-        exit 1
     fi
 
     log "Setting ownership of $WEBROOT to www-data:www-data."
     chown -R www-data:www-data "$WEBROOT"
     if [[ $? -ne 0 ]]; then
         log "Failed to set ownership for $WEBROOT."
-        exit 1
     fi
 
     log "Setting permissions of $WEBROOT to 755."
     chmod -R 755 "$WEBROOT"
     if [[ $? -ne 0 ]]; then
         log "Failed to set permissions for $WEBROOT."
-        exit 1
     fi
 else
     log "Webroot directory $WEBROOT already exists. Ensuring correct ownership and permissions."
@@ -76,7 +72,6 @@ else
         chown -R www-data:www-data "$WEBROOT"
         if [[ $? -ne 0 ]]; then
             log "Failed to set ownership for $WEBROOT."
-            exit 1
         fi
     else
         log "Ownership for $WEBROOT is correctly set to www-data:www-data."
@@ -88,7 +83,6 @@ else
         chmod -R 755 "$WEBROOT"
         if [[ $? -ne 0 ]]; then
             log "Failed to set permissions for $WEBROOT."
-            exit 1
         fi
     else
         log "Permissions for $WEBROOT are correctly set to 755."
@@ -113,7 +107,6 @@ if [ ! -d "$CERT_PATH" ]; then
         log "Certificates successfully created for domains ${DOMAINS[*]}."
     else
         log "Error occurred while creating certificates for domains ${DOMAINS[*]}. Check the logs for details."
-        exit 1
     fi
 else
     log "Certificates for domains ${DOMAINS[*]} already exist. Checking if renewal is necessary."
@@ -126,7 +119,6 @@ else
         log "Certificates successfully renewed for domains ${DOMAINS[*]}."
     else
         log "Error occurred while renewing certificates for domains ${DOMAINS[*]}. Check the logs for details."
-        exit 1
     fi
 fi
 
@@ -136,7 +128,6 @@ if [[ $? -eq 0 ]]; then
     log "Nginx reloaded successfully."
 else
     log "Error occurred while reloading Nginx."
-    exit 1
 fi
 
 if [ -d "$CERT_PATH" ]; then
@@ -158,4 +149,3 @@ else
 fi
 
 log "=== Certificate creation/renewal process completed successfully ==="
-exit 0
