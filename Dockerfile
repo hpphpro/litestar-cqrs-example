@@ -21,4 +21,4 @@ COPY . /src
 
 WORKDIR /src
 
-RUN uv sync --frozen --no-dev --no-group test --compile-bytecode
+RUN uv sync --frozen --no-dev --compile-bytecode

@@ -3,7 +3,7 @@ import uuid
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, MappedAsDataclass, declarative_mixin, mapped_column
-from uuid_extensions import uuid7
+from uuid_utils import uuid7
 
 
 @declarative_mixin

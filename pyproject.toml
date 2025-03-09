@@ -15,7 +15,7 @@ dependencies = [
     "redis>=5.2.1",
     "sqlalchemy>=2.0.37",
     "types-redis>=4.6.0.20241004",
-    "uuid7>=0.1.0",
+    "uuid-utils>=0.10.0",
     "uvicorn>=0.34.0",
 ]
 
