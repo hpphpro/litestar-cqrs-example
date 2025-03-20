@@ -55,7 +55,7 @@ class Create[E: Entity](ExtendedQuery[E, E | None]):
     __slots__ = ()
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> E | None:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> E | None:
         result = await conn.execute(
             insert(self.entity).on_conflict_do_nothing().values(**self._kw).returning(self.entity)
         )
@@ -70,7 +70,7 @@ class BatchCreate[E: Entity](ExtendedQuery[E, Sequence[E]]):
         self._data = data
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
         result = await conn.execute(
             insert(self.entity).on_conflict_do_nothing().returning(self.entity), self._data
         )
@@ -93,12 +93,13 @@ class GetOne[E: Entity](ExtendedQuery[E, E | None]):
         ]
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> E | None:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> E | None:
         stmt = select_with_relations(
             *self._loads,
             entity=self.entity,
             _node=kw.pop("_node", None),
             self_key=kw.pop("self_key", None),
+            **kw,
         ).where(*self._clauses)
 
         if self._lock:
@@ -133,7 +134,7 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
         ]
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> types.OffsetPaginationResult[E]:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> types.OffsetPaginationResult[E]:
         return await self._perform(conn, **kw)
 
     async def _perform(
@@ -167,6 +168,7 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
                 entity=self.entity,
                 _node=kw.pop("_node", None),
                 self_key=kw.pop("self_key", None),
+                **kw,
             )
             .limit(self.limit)
             .offset(self.offset)
@@ -217,7 +219,7 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
         ]
 
     @override
-    async def execute(
+    async def __call__(
         self, conn: AsyncSession, /, **kw: Any
     ) -> types.CursorPaginationResult[str, E]:
         if self.cursor_type == "integer":
@@ -240,6 +242,7 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
                 entity=self.entity,
                 _node=kw.pop("_node", None),
                 self_key=kw.pop("self_key", None),
+                **kw,
             )
             .limit(self.limit)
             .order_by(
@@ -285,6 +288,9 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
             select_with_relations(
                 *self.loads,
                 entity=self.entity,
+                _node=kw.pop("_node", None),
+                self_key=kw.pop("self_key", None),
+                **kw,
             )
             .limit(self.limit)
             .order_by(
@@ -323,18 +329,20 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
 class Update[E: Entity](ExtendedQuery[E, Sequence[E]]):
     __slots__ = ("clauses",)
 
-    def __init__(self, **data: Any) -> None:
+    def __init__(self, data: Any, **filters: Any) -> None:
         assert data, "At least one field to update must be set"
         super().__init__(**data)
-        self.clauses: list[sa.ColumnExpressionArgument[bool]] = []
+        self.clauses: list[sa.ColumnExpressionArgument[bool]] = [
+            getattr(self.entity, k) == v for k, v in filters.items() if v is not None
+        ]
 
-    def base_filter(self, **kw: Any) -> Update[E]:
+    def filter(self, **kw: Any) -> Update[E]:
         self.clauses += [getattr(self.entity, k) == v for k, v in kw.items() if v is not None]
 
         return self
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
         result = await conn.scalars(
             sa.update(self.entity).where(*self.clauses).values(**self._kw).returning(self.entity)
         )
@@ -352,7 +360,7 @@ class Delete[E: Entity](ExtendedQuery[E, Sequence[E]]):
         ]
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
         result = await conn.execute(
             sa.delete(self.entity).where(*self.clauses).returning(self.entity)
         )
@@ -370,7 +378,7 @@ class Exists[E: Entity](ExtendedQuery[E, bool]):
         ]
 
     @override
-    async def execute(self, conn: AsyncSession, /, **kw: Any) -> bool:
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> bool:
         is_exist = await conn.execute(
             sa.exists(sa.select(self.entity.id).where(*self.clauses)).select()
         )

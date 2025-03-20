@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Protocol, TypedDict, runtime_checkable
+from collections.abc import Callable
+from typing import Protocol, TypedDict, cast, runtime_checkable
 
 from src.database.interfaces.manager import TransactionManager
 from src.services.internal.user.core import UserService, UserServiceImpl
@@ -34,4 +35,12 @@ class ServiceGatewayImpl:
 
     @property
     def user(self) -> UserService:
-        return self._cache.setdefault("user", UserServiceImpl(self._manager))
+        return self._get_or_create("user", UserServiceImpl)
+
+    def _get_or_create[S](self, key: str, factory: Callable[..., S]) -> S:
+        if not (service := self._cache.get(key)):
+            service = factory(self._manager)
+
+            self._cache[key] = service  # type: ignore[literal-required]
+
+        return cast(S, service)

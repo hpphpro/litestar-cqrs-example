@@ -65,7 +65,7 @@ class UserServiceImpl:
     async def update(self, id: uuid.UUID, **data: Unpack[UserUpdate]) -> entity.User:
         await self.exists(id)
         result = await self._manager.send(
-            queries.base.Update.with_(entity.User)(**data).base_filter(id=id)
+            queries.base.Update.with_(entity.User)(data).filter(id=id)
         )
 
         if not result:
