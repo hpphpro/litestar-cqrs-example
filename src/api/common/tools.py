@@ -31,7 +31,7 @@ def page_to_offset(page: int, limit: int) -> int:
     if page <= 0:
         return 0
 
-    return (page - 1) * limit if page == 1 else page * limit
+    return (page - 1) * limit
 
 
 def singleton[T](value: T) -> Callable[[], T]:
