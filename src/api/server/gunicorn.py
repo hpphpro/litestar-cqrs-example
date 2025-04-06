@@ -4,7 +4,7 @@ from typing import Any
 
 from gunicorn.app.base import Application
 
-from src.core.config import ServerConfig
+from src.config.core import ServerConfig
 
 from ._util import workers_count
 

@@ -7,7 +7,7 @@ from src.api.common.bus import QCBus
 from src.api.common.bus.middlewares.cache import CacheInvalidateMiddleware, CacheMiddleware
 from src.api.v1.commands import CommandBus
 from src.api.v1.queries import QueryBus
-from src.core.config import Config
+from src.config.core import Config
 from src.database.alchemy.core import ConnectionFactory
 from src.database.manager import ManagerFactory
 from src.services.cache.redis import RedisCache

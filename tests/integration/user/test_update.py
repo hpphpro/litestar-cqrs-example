@@ -5,7 +5,7 @@ from litestar.testing import AsyncTestClient
 from src.api.v1.commands.user.update import UpdateUser
 from src.api.v1.commands.user.create import CreateUser
 
-from src.core.config import Config
+from src.config.core import Config
 
 
 async def test_user_update_success(client: AsyncTestClient[Litestar], app_config: Config) -> None:

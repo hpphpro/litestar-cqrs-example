@@ -3,7 +3,7 @@ from typing import Any
 from granian.constants import Interfaces
 from granian.server import Server as Granian
 
-from src.core.config import ServerConfig
+from src.config.core import ServerConfig
 
 from ._util import workers_count
 

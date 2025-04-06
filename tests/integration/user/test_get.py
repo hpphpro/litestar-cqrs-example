@@ -4,7 +4,7 @@ from litestar import Litestar
 from litestar.testing import AsyncTestClient
 
 from src.api.v1.commands.user.create import CreateUser
-from src.core.config import Config
+from src.config.core import Config
 from tests.integration.conftest import *  # noqa
 
 

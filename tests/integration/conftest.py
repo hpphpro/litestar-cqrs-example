@@ -11,8 +11,8 @@ from testcontainers.redis import RedisContainer
 
 from src.api import init_app
 from src.api.v1 import init_v1_router
-from src.core.config import Config as AppConfig
-from src.core.config import DbConfig, RedisConfig, absolute_path, load_config
+from src.config.core import Config as AppConfig
+from src.config.core import DbConfig, RedisConfig, absolute_path, load_config
 from src.database.alchemy.core import ConnectionFactory
 
 

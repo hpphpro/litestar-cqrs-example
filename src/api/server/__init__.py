@@ -1,6 +1,6 @@
 from typing import Any
 
-from src.core.config import ServerConfig
+from src.config.core import ServerConfig
 
 from .granian import run_granian
 from .gunicorn import run_gunicorn

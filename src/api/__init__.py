@@ -13,7 +13,7 @@ from redis.asyncio.client import Redis
 from src.api.common.exceptions import current_common_exc_handlers
 from src.api.common.middlewares import current_common_middlewares
 from src.api.common.tools import ClosableProxy, RouterState
-from src.core.config import Config
+from src.config.core import Config
 
 
 @asynccontextmanager

@@ -3,7 +3,7 @@ from typing import Any
 
 import redis.asyncio as aioredis
 
-from src.core.config import RedisConfig
+from src.config.core import RedisConfig
 from src.services.interfaces.cache import StrCache
 
 

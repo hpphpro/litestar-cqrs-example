@@ -10,7 +10,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from src.core.config import load_config
+from src.config.core import load_config
 from src.database.alchemy.entity import Entity
 
 

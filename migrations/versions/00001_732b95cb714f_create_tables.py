@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from src.core.config import absolute_path
+from src.config.core import absolute_path
 
 # revision identifiers, used by Alembic.
 revision: str = '00001_732b95cb714f'

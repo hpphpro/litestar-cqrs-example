@@ -2,7 +2,7 @@ from typing import Any
 
 import uvicorn
 
-from src.core.config import ServerConfig
+from src.config.core import ServerConfig
 
 from ._util import workers_count
 
