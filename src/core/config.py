@@ -80,6 +80,7 @@ class AppConfig(BaseSettings):
     root_path: str = "/api"
     title: str = "Example"
     debug: bool = True
+    debug_detailed: bool = False
     version: str = "0.0.1"
     metrics: bool = True
     swagger: bool = True

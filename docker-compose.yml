@@ -120,6 +120,7 @@ services:
       - VIRTUAL_HOST=service.grafana
       - NETWORK_ACCESS=internal
       - VIRTUAL_PORT=3000
+
   prometheus:
     profiles: [ "api", "prometheus" ]
     image: prom/prometheus:latest
@@ -198,7 +199,10 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"
+        max-size: "20m"
+        max-file: "5"
+        compress: "true"
+        mode: "non-blocking"
 
   redis:
     profiles: [ "api" ]

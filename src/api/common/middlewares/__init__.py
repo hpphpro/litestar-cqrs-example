@@ -9,7 +9,7 @@ __all__ = ("ProcessTimeMiddleware",)
 
 
 def current_common_middlewares() -> tuple[Middleware, ...]:
-    return (ProcessTimeMiddleware, XRequestIdMiddleware)
+    return (ProcessTimeMiddleware(), XRequestIdMiddleware())
 
 
 def setup_common_middlewares(app: Router) -> None:

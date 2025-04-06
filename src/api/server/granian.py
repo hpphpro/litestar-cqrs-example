@@ -1,7 +1,7 @@
 from typing import Any
 
-from granian import Granian
 from granian.constants import Interfaces
+from granian.server import Server as Granian
 
 from src.core.config import ServerConfig
 
@@ -18,10 +18,10 @@ def run_granian(
         address=config.host,
         port=config.port,
         workers=config.workers if config.workers != "auto" else workers_count(),
-        threads=config.threads,
+        runtime_threads=config.threads,
         log_access=config.log,
         interface=Interfaces.ASGI,
         **kw,
     )
 
-    server.serve()
+    server.serve()  # type: ignore[attr-defined]

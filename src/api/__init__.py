@@ -6,6 +6,9 @@ from litestar.config.app import AppConfig
 from litestar.middleware.logging import LoggingMiddlewareConfig
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
+from litestar.stores.redis import RedisStore
+from litestar.stores.registry import StoreRegistry
+from redis.asyncio.client import Redis
 
 from src.api.common.exceptions import current_common_exc_handlers
 from src.api.common.middlewares import current_common_middlewares
@@ -28,7 +31,7 @@ def on_app_init(config: Config, *router_state: RouterState) -> Callable[[AppConf
         app_config.exception_handlers.update(current_common_exc_handlers())
         app_config.middleware.extend(current_common_middlewares())
 
-        if config.app.debug:
+        if config.app.debug and config.app.debug_detailed:
             app_config.middleware.append(LoggingMiddlewareConfig().middleware)
 
         if config.app.metrics:
@@ -70,6 +73,12 @@ def init_app(config: Config, *router_state: RouterState) -> Litestar:
         debug=config.app.debug,
         lifespan=[lifespan],
         on_app_init=[on_app_init(config, *router_state)],
+        stores=StoreRegistry(
+            default_factory=lambda _: RedisStore(
+                Redis(**config.redis.model_dump(), decode_responses=False),
+                handle_client_shutdown=True,
+            )
+        ),
     )
 
     return app

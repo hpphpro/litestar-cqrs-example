@@ -30,7 +30,7 @@ dev = [
 ]
 
 [tool.mypy]
-warn_unused_ignores = true
+warn_unused_ignores = false
 follow_imports_for_stubs = true
 ignore_missing_imports = true
 show_absolute_path = true
