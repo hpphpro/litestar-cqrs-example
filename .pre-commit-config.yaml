@@ -19,7 +19,13 @@ repos:
     hooks:
       - id: mypy
         exclude: ^(docs/|typings/|migrations/)
-        additional_dependencies: [litestar, pydantic-settings, sqlalchemy, types-redis, pytest]
+        entry: uv run mypy
+        args:
+          - "--config-file"
+          - "pyproject.toml"
+        types: [python]
+        language: system
+
   - repo: https://github.com/hadolint/hadolint
     rev: v2.3.0
     hooks:
