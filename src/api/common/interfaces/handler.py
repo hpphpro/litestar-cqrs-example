@@ -4,7 +4,7 @@ from typing import Any
 from src.api.common.interfaces.dto import DTO
 
 
-class Handler[T, Q: DTO, R: DTO | None](abc.ABC):
+class Handler[T, Q: DTO, R](abc.ABC):
     __slots__ = ()
 
     @abc.abstractmethod
