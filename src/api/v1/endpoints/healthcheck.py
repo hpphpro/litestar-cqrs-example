@@ -1,8 +1,6 @@
-from litestar import MediaType, Request, get, status_codes
-from litestar.datastructures import State
+from litestar import MediaType, get, status_codes
 
 from src.api.v1 import dto
-from src.api.v1.queries import QueryBus
 
 
 @get(
@@ -11,7 +9,5 @@ from src.api.v1.queries import QueryBus
     tags=["healthcheck"],
     status_code=status_codes.HTTP_200_OK,
 )
-async def healthcheck_endpoint(
-    query_bus: QueryBus, request: Request[None, None, State]
-) -> dto.healthcheck.HealthCheck:
+async def healthcheck_endpoint() -> dto.healthcheck.HealthCheck:
     return dto.healthcheck.HealthCheck(ok=True)

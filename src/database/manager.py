@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from types import TracebackType
-from typing import Any, cast
+from typing import Any
 
 from src.database.interfaces.connection import AsyncConnection, IsolationLevel
 from src.database.interfaces.manager import TransactionManager
@@ -21,7 +21,7 @@ class TransactionManagerImpl:
         self._is_tx_opened = False
 
     async def send[C: AsyncConnection, T](self, query: Query[C, T], /, **kw: Any) -> T:
-        return await query(cast(C, self.conn), **kw)
+        return await query(self.conn, **kw)  # type: ignore[arg-type]
 
     __call__ = send
 
@@ -41,6 +41,7 @@ class TransactionManagerImpl:
 
     async def __aenter__(self) -> TransactionManagerImpl:
         await self.conn.__aenter__()
+
         return self
 
     async def commit(self) -> None:
@@ -54,20 +55,25 @@ class TransactionManagerImpl:
     ) -> TransactionManagerImpl:
         assert self.conn.is_active, "Cannot start transaction on closed connection"
 
-        try:
-            if not self.conn.in_transaction() and not nested:
-                await self.conn.begin()
-            elif nested and self.conn.in_transaction():
-                await self.conn.begin_nested()
-            else:
-                raise AssertionError("You cannot start nested transaction with isolation level")
-            self._is_tx_opened = True
-        finally:
-            if isolation_level:
-                driver = await self.conn.connection()
-                await driver.exec_driver_sql(
-                    f"SET TRANSACTION ISOLATION LEVEL {isolation_level.upper()}"
-                )
+        if not self.conn.in_transaction() and not nested:
+            await self.conn.begin()
+        elif nested and self.conn.in_transaction():
+            await self.conn.begin_nested()
+        elif nested and not self.conn.in_transaction():
+            await self.conn.begin()
+        else:
+            raise ValueError(
+                "Invalid transaction state: cannot start "
+                "regular transaction within active transaction"
+            )
+
+        self._is_tx_opened = True
+
+        if isolation_level:
+            driver = await self.conn.connection()
+            await driver.exec_driver_sql(
+                f"SET TRANSACTION ISOLATION LEVEL {isolation_level.upper()}"
+            )
 
         return self
 

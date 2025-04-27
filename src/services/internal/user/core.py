@@ -3,10 +3,9 @@ from typing import Protocol, Unpack, runtime_checkable
 
 from src.common import exceptions as exc
 from src.database.alchemy import entity, queries
-from src.database.alchemy.types import OffsetPaginationResult, OrderBy
+from src.database.alchemy.types import OffsetPaginationResult, OrderBy, UserCreate, UserUpdate
 from src.database.interfaces.manager import TransactionManager
 from src.services import tools
-from src.services.internal.user.types import UserCreate, UserUpdate
 
 
 @runtime_checkable

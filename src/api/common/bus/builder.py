@@ -122,8 +122,7 @@ class BusBuilder:
         return self
 
     def middlewares(self, *middlewares: MiddlewareType) -> BusBuilder:
-        for middleware in middlewares:
-            self.middleware(middleware)
+        self._middlewares.extend(middlewares)
 
         return self
 

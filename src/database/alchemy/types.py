@@ -1,6 +1,6 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 
 @dataclass(frozen=True)
@@ -24,3 +24,13 @@ JsonDumps = Callable[..., str]
 CursorIntegerType = Literal["INTEGER"]
 CursorUUIDType = Literal["UUID"]
 CursorType = Literal[CursorUUIDType, CursorIntegerType]
+
+
+class UserCreate(TypedDict):
+    login: str
+    password: str
+
+
+class UserUpdate(TypedDict, total=False):
+    login: str
+    password: str
