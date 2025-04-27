@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
-from typing import Any, Self, get_args, override
+from collections.abc import AsyncIterator, Mapping, Sequence
+from typing import Any, Final, Self, get_args, override
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert
@@ -13,6 +13,9 @@ from src.database.alchemy import types
 from src.database.alchemy.entity import Entity
 from src.database.alchemy.tools import cursor_decoder, cursor_encoder, select_with_relations
 from src.database.interfaces.query import Query
+
+
+DEFAULT_CHUNK_LIMIT: Final[int] = 100
 
 
 class ExtendedQuery[E: Entity, R](Query[AsyncSession, R]):
@@ -384,3 +387,80 @@ class Exists[E: Entity](ExtendedQuery[E, bool]):
         )
 
         return bool(is_exist.scalar())
+
+
+class ExecuteFunc[R](Query[AsyncSession, R | None]):
+    __slots__ = ("_func",)
+
+    def __init__(self, func: sa.Function[R]) -> None:
+        self._func = func
+
+    @override
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> R | None:
+        return (await conn.execute(self._func)).scalar()
+
+
+class Count[E: Entity](ExtendedQuery[E, int]):
+    __slots__ = ("clauses",)
+
+    def __init__(self, **kw: Any) -> None:
+        self.clauses: list[sa.ColumnExpressionArgument[bool]] = [
+            getattr(self.entity, k) == v for k, v in kw.items() if v is not None
+        ]
+
+    @override
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> int:
+        return await self._get_total(conn, **kw)
+
+    async def _get_total(
+        self, conn: AsyncSession, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
+    ) -> int:
+        result = await conn.execute(
+            sa.select(sa.func.count())
+            .select_from(self.entity)
+            .where(*(self.clauses + list(clauses)))
+        )
+
+        return result.scalar() or 0
+
+
+class IterChunked[E: Entity](ExtendedQuery[E, AsyncIterator[E]]):
+    __slots__ = (
+        "clauses",
+        "chunk_limit",
+        "loads",
+        "order_by",
+    )
+
+    def __init__(
+        self,
+        *loads: str,
+        chunk_limit: int = DEFAULT_CHUNK_LIMIT,
+        order_by: types.OrderBy = "ASC",
+        **kw: Any,
+    ) -> None:
+        self.order_by = order_by.lower()
+        self.chunk_limit = chunk_limit
+        self.loads = loads
+        self.clauses: list[sa.ColumnExpressionArgument[bool]] = [
+            getattr(self.entity, k) == v for k, v in kw.items() if v is not None
+        ]
+
+    @override
+    async def __call__(self, conn: AsyncSession, /, **kw: Any) -> AsyncIterator[E]:
+        return self._iter(conn, **kw)
+
+    async def _iter(
+        self, conn: AsyncSession, /, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
+    ) -> AsyncIterator[E]:
+        result = await conn.stream(self._stmt(*clauses, **kw))
+
+        async for chunk in result.unique().scalars().yield_per(self.chunk_limit):
+            yield chunk
+
+    def _stmt(self, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any) -> sa.Select[tuple[E]]:
+        return (
+            select_with_relations(*self.loads, entity=self.entity, **kw)
+            .order_by(getattr(self.entity.id, self.order_by)())
+            .where(*(self.clauses + list(clauses)))
+        )

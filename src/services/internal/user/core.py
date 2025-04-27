@@ -30,7 +30,9 @@ class UserServiceImpl:
         self._manager = manager
 
     async def get_one(self, id: uuid.UUID) -> entity.User:
-        result = await self._manager.send(queries.base.GetOne.with_(entity.User)(id=id))
+        result = await self._manager.send(
+            queries.base.GetOne[entity.User].with_(entity.User)(id=id)
+        )
 
         if not result:
             raise exc.NotFoundError("No such user")
@@ -44,7 +46,7 @@ class UserServiceImpl:
         order_by: OrderBy = "ASC",
     ) -> OffsetPaginationResult[entity.User]:
         result = await self._manager.send(
-            queries.base.GetManyByOffset.with_(entity.User)(
+            queries.base.GetManyByOffset[entity.User].with_(entity.User)(
                 offset=offset, limit=limit, order_by=order_by
             )
         )
@@ -53,7 +55,9 @@ class UserServiceImpl:
 
     @tools.on_error("login", should_raise=exc.ConflictError)
     async def create(self, **data: Unpack[UserCreate]) -> entity.User:
-        result = await self._manager.send(queries.base.Create.with_(entity.User)(**data))
+        result = await self._manager.send(
+            queries.base.Create[entity.User].with_(entity.User)(**data)
+        )
 
         if not result:
             raise exc.ConflictError("User already exists")
@@ -64,7 +68,7 @@ class UserServiceImpl:
     async def update(self, id: uuid.UUID, **data: Unpack[UserUpdate]) -> entity.User:
         await self.exists(id)
         result = await self._manager.send(
-            queries.base.Update.with_(entity.User)(data).filter(id=id)
+            queries.base.Update[entity.User].with_(entity.User)(data).filter(id=id)
         )
 
         if not result:
@@ -77,12 +81,16 @@ class UserServiceImpl:
     )
     async def delete(self, id: uuid.UUID) -> bool:
         await self.exists(id)
-        result = await self._manager.send(queries.base.Delete.with_(entity.User)(id=id))
+        result = await self._manager.send(
+            queries.base.Delete[entity.User].with_(entity.User)(id=id)
+        )
 
         return bool(result)
 
     async def exists(self, id: uuid.UUID) -> None:
-        result = await self._manager.send(queries.base.Exists.with_(entity.User)(id=id))
+        result = await self._manager.send(
+            queries.base.Exists[entity.User].with_(entity.User)(id=id)
+        )
 
         if not result:
             raise exc.NotFoundError("No such user")
