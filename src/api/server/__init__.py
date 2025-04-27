@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, assert_never
 
 from src.config.core import ServerConfig
 
@@ -15,3 +15,5 @@ def serve(app: Any, config: ServerConfig, suffix: str = "app", **kw: Any) -> Non
             run_gunicorn(app, config, **kw)
         case "uvicorn":
             run_uvicorn(app, config, **kw)
+        case _:
+            assert_never(config.type)

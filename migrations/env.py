@@ -22,10 +22,8 @@ if config.config_file_name is not None:
 
 target_metadata = Entity.metadata
 
-if not config.get_main_option("sqlalchemy.url"):
+if not (url := config.get_main_option("sqlalchemy.url")):
     url = load_config().db.url()
-else:
-    url = config.get_main_option("sqlalchemy.url")
 
 
 def add_number_to_migrations(

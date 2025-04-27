@@ -9,7 +9,7 @@ from ._util import workers_count
 
 
 def run_granian(
-    target: Any,
+    target: str,
     config: ServerConfig,
     **kw: Any,
 ) -> None:

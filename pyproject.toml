@@ -17,6 +17,7 @@ dependencies = [
     "types-redis>=4.6.0.20241004",
     "uuid-utils>=0.10.0",
     "uvicorn>=0.34.0",
+    "uvloop>=0.21.0",
 ]
 
 [dependency-groups]
