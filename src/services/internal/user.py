@@ -9,7 +9,7 @@ from src.services.internal.base import InternalService
 
 
 class UserServiceImpl(InternalService[entity.User]):
-    __slots__ = ("_manager",)
+    __slots__ = ()
 
     async def get_one(self, id: uuid.UUID) -> entity.User:
         result = await self._dao.get_one(id=id)
