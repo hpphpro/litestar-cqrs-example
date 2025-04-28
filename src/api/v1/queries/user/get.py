@@ -8,7 +8,7 @@ from litestar.datastructures import State
 from src.api.common.interfaces.handler import Handler
 from src.api.v1 import dto
 from src.database.alchemy.types import OrderBy
-from src.services.gateway import ServiceGateway
+from src.services.internal.interfaces import InternalGateway
 
 
 class GetOneUser(dto.BaseDTO):
@@ -17,7 +17,7 @@ class GetOneUser(dto.BaseDTO):
 
 @dataclass(frozen=True, slots=True)
 class GetOneUserHandler(Handler[Request[None, None, State], GetOneUser, dto.user.User]):
-    gateway: ServiceGateway
+    gateway: InternalGateway
 
     @override
     async def __call__(
@@ -39,7 +39,7 @@ class GetManyOffsetUser(dto.BaseDTO):
 class GetManyOffsetUserHandler(
     Handler[Request[None, None, State], GetManyOffsetUser, dto.OffsetResult[dto.user.User]]
 ):
-    gateway: ServiceGateway
+    gateway: InternalGateway
 
     @override
     async def __call__(

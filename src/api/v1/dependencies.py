@@ -11,7 +11,7 @@ from src.config.core import Config
 from src.database.alchemy.core import ConnectionFactory
 from src.database.manager import ManagerFactory
 from src.services.cache.redis import RedisCache
-from src.services.gateway import ServiceGatewayImpl
+from src.services.internal.gateway import InternalGatewayImpl
 
 
 def setup_v1_dependencies(router: Router, config: Config) -> State:
@@ -28,7 +28,7 @@ def setup_v1_dependencies(router: Router, config: Config) -> State:
     manager = ManagerFactory(connection)
     cache = RedisCache.from_config(config.redis)
 
-    lazy_gw = tools.lazy_single(ServiceGatewayImpl, manager.make_transaction_manager)
+    lazy_gw = tools.lazy_single(InternalGatewayImpl, manager.make_transaction_manager)
     query_bus = (
         QCBus.builder()
         .dependencies(gateway=lazy_gw)

@@ -7,7 +7,7 @@ from litestar.datastructures import State
 
 from src.api.common.interfaces.handler import Handler
 from src.api.v1 import dto
-from src.services.gateway import ServiceGateway
+from src.services.internal.interfaces import InternalGateway
 
 
 class DeleteUser(dto.BaseDTO):
@@ -16,7 +16,7 @@ class DeleteUser(dto.BaseDTO):
 
 @dataclass(frozen=True, slots=True)
 class DeleteUserHandler(Handler[Request[None, None, State], DeleteUser, None]):
-    gateway: ServiceGateway
+    gateway: InternalGateway
 
     @override
     async def __call__(

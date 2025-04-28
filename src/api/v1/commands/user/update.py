@@ -7,7 +7,7 @@ from litestar.datastructures import State
 
 from src.api.common.interfaces.handler import Handler
 from src.api.v1 import dto
-from src.services.gateway import ServiceGateway
+from src.services.internal.interfaces import InternalGateway
 
 
 class UpdateUser(dto.BaseDTO):
@@ -17,7 +17,7 @@ class UpdateUser(dto.BaseDTO):
 
 @dataclass(frozen=True, slots=True)
 class UpdateUserHandler(Handler[Request[None, None, State], UpdateUser, dto.Status]):
-    gateway: ServiceGateway
+    gateway: InternalGateway
 
     @override
     async def __call__(

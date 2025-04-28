@@ -8,7 +8,7 @@ from msgspec import Meta
 from src.api.common.interfaces.handler import Handler
 from src.api.v1 import dto
 from src.api.v1.commands.constants import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
-from src.services.gateway import ServiceGateway
+from src.services.internal.interfaces import InternalGateway
 
 
 class CreateUser(dto.BaseDTO):
@@ -28,7 +28,7 @@ class CreateUser(dto.BaseDTO):
 
 @dataclass(frozen=True, slots=True)
 class CreateUserHandler(Handler[Request[None, None, State], CreateUser, dto.user.User]):
-    gateway: ServiceGateway
+    gateway: InternalGateway
 
     @override
     async def __call__(

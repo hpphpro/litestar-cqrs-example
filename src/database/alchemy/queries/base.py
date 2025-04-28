@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any, Final, Self, get_args, override
 
@@ -204,7 +205,7 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
         *loads: str,
         order_by: types.OrderBy = "ASC",
         limit: int,
-        cursor_type: types.CursorType,
+        cursor_type: types.CursorType | None = None,
         cursor: str | None = None,
         encoder: types.JsonDumps = json.dumps,
         decoder: types.JsonLoads = json.loads,
@@ -216,7 +217,11 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
         self.cursor = cursor
         self.encoder = encoder
         self.decoder = decoder
-        self.cursor_type = cursor_type.lower()
+        self.cursor_type = (
+            cursor_type.lower()
+            if cursor_type
+            else ("uuid" if isinstance(self.entity.id.type.python_type, uuid.UUID) else "integer")
+        )
         self.clauses: list[sa.ColumnExpressionArgument[bool]] = [
             getattr(self.entity, k) == v for k, v in kw.items() if v is not None
         ]
