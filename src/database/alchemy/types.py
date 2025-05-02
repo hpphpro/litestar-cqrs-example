@@ -1,3 +1,4 @@
+import enum
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypedDict
@@ -34,3 +35,7 @@ class UserCreate(TypedDict):
 class UserUpdate(TypedDict, total=False):
     login: str
     password: str
+
+
+class UnsetType(enum.Enum):
+    UNSET = enum.auto()

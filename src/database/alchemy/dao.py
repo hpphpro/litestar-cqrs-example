@@ -38,7 +38,7 @@ class DAO[E: Entity]:
         *loads: str,
         order_by: types.OrderBy = "ASC",
         limit: int,
-        offset: int | None = None,
+        offset: int,
         **filters: Any,
     ) -> types.OffsetPaginationResult[E]: ...
     @overload
@@ -47,7 +47,7 @@ class DAO[E: Entity]:
         *loads: str,
         order_by: types.OrderBy = "ASC",
         limit: int,
-        cursor: str | None = None,
+        cursor: str | None,
         **filters: Any,
     ) -> types.CursorPaginationResult[str, E]: ...
     async def get_many(
@@ -55,19 +55,19 @@ class DAO[E: Entity]:
         *loads: str,
         order_by: types.OrderBy = "ASC",
         limit: int,
-        offset: int | None = None,
-        cursor: str | None = None,
+        offset: int | types.UnsetType = types.UnsetType.UNSET,
+        cursor: str | None | types.UnsetType = types.UnsetType.UNSET,
         **filters: Any,
     ) -> types.OffsetPaginationResult[E] | types.CursorPaginationResult[str, E]:
         result: types.OffsetPaginationResult[E] | types.CursorPaginationResult[str, E]
 
-        if offset is not None:
+        if offset != types.UnsetType.UNSET:
             result = await self._manager.send(
                 base.GetManyByOffset[E].with_(self._entity)(
                     *loads, order_by=order_by, offset=offset, limit=limit, **filters
                 )
             )
-        elif cursor is not None:
+        elif cursor != types.UnsetType.UNSET:
             result = await self._manager.send(
                 base.GetManyByCursor[E].with_(self._entity)(
                     *loads, order_by=order_by, cursor=cursor, limit=limit, **filters
