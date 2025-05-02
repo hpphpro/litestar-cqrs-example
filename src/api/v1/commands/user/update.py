@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Any, override
 
 import msgspec
@@ -15,7 +14,6 @@ class UpdateUser(dto.BaseDTO):
     password: str | msgspec.UnsetType = msgspec.UNSET
 
 
-@dataclass(frozen=True, slots=True)
 class UpdateUserHandler(Handler[Request[None, None, State], UpdateUser, dto.Status]):
     gateway: InternalGateway
 

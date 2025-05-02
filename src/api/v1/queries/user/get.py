@@ -1,5 +1,5 @@
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import Any, override
 
 from litestar import Request
@@ -15,7 +15,6 @@ class GetOneUser(dto.BaseDTO):
     id: uuid.UUID
 
 
-@dataclass(frozen=True, slots=True)
 class GetOneUserHandler(Handler[Request[None, None, State], GetOneUser, dto.user.User]):
     gateway: InternalGateway
 
@@ -35,7 +34,6 @@ class GetManyOffsetUser(dto.BaseDTO):
     order_by: OrderBy = "ASC"
 
 
-@dataclass(frozen=True, slots=True)
 class GetManyOffsetUserHandler(
     Handler[Request[None, None, State], GetManyOffsetUser, dto.OffsetResult[dto.user.User]]
 ):

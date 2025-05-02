@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, cast, override
+from typing import Any, override
 
 from litestar import Request
 from litestar.config.response_cache import default_cache_key_builder
@@ -7,6 +7,7 @@ from litestar.datastructures import State
 
 from src.api.common.interfaces.dto import DTO
 from src.api.common.interfaces.middleware import CallNextHandlerMiddlewareType, HandlerMiddleware
+from src.api.common.tools import msgspec_encoder
 from src.services.interfaces.cache import StrCache
 
 
@@ -16,7 +17,7 @@ class CacheMiddleware(HandlerMiddleware[Request[None, None, State] | None]):
     cache_time: float = field(default=10)
 
     @override
-    async def __call__[Q: DTO, R: DTO | None](
+    async def __call__[Q: DTO, R](
         self,
         call_next: CallNextHandlerMiddlewareType,
         request: Request[None, None, State] | None,
@@ -30,11 +31,12 @@ class CacheMiddleware(HandlerMiddleware[Request[None, None, State] | None]):
         key = f"{request.base_url}/{default_cache_key_builder(request)}"
         value = await self.cache.get(key)
         if value:
-            return cast(R, value)
+            return value  # type: ignore[return-value]
 
         result: R = await call_next(request, qce, **kw)
-        if isinstance(result, DTO):
-            await self.cache.set(key, result.as_string(), expire=self.cache_time)
+
+        if result:
+            await self.cache.set(key, msgspec_encoder(result), expire=self.cache_time)
 
         return result
 
@@ -44,7 +46,7 @@ class CacheInvalidateMiddleware(HandlerMiddleware[Request[None, None, State] | N
     cache: StrCache
 
     @override
-    async def __call__[Q: DTO, R: DTO | None](
+    async def __call__[Q: DTO, R](
         self,
         call_next: CallNextHandlerMiddlewareType,
         request: Request[None, None, State] | None,

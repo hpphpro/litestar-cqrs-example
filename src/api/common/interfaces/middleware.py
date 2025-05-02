@@ -10,14 +10,14 @@ class MiddlewareType(Protocol):
 
 
 class CallNextHandlerMiddlewareType(Protocol):
-    async def __call__[T, Q: DTO, R: DTO | None](self, request: T, qc: Q, /, **kw: Any) -> R: ...
+    async def __call__[T, Q: DTO, R](self, request: T, qc: Q, /, **kw: Any) -> R: ...
 
 
 class HandlerMiddleware[T](abc.ABC):
     __slots__ = ()
 
     @abc.abstractmethod
-    async def __call__[Q: DTO, R: DTO | None](
+    async def __call__[Q: DTO, R](
         self,
         call_next: CallNextHandlerMiddlewareType,
         request: T,

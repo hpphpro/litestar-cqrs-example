@@ -25,11 +25,8 @@ DEFAULT_RELATIONSHIP_LOAD_LIMIT: Final[int] = 20
 def _bfs_search[E: Entity](
     start: type[E],
     end: str,
-    node: frozendict[type[Entity], tuple[RelationshipProperty[type[Entity]]]] | None = None,
+    node: frozendict[type[Entity], tuple[RelationshipProperty[type[Entity]]]],
 ) -> list[RelationshipProperty[E]]:
-    if node is None:
-        node = MODELS_RELATIONSHIPS_NODE
-
     queue = deque([[start]])
     checked = set()
 
@@ -110,7 +107,7 @@ def _construct_loads[E: Entity](
                 else:
                     if origin is entity and self_key:
                         alias = aliased(origin)
-                        query = query.join(alias, entity.id == getattr(alias, self_key))
+                        query = query.outerjoin(alias, entity.id == getattr(alias, self_key))
                         load = _construct_strategy(contains_eager, relationship, load, alias=alias)
                         continue
 

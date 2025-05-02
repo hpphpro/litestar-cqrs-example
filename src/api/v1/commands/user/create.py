@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Annotated, Any, override
 
 from litestar import Request
@@ -26,7 +25,6 @@ class CreateUser(dto.BaseDTO):
     ]
 
 
-@dataclass(frozen=True, slots=True)
 class CreateUserHandler(Handler[Request[None, None, State], CreateUser, dto.user.User]):
     gateway: InternalGateway
 

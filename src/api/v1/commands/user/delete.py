@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import dataclass
 from typing import Any, override
 
 from litestar import Request
@@ -14,7 +13,6 @@ class DeleteUser(dto.BaseDTO):
     id: uuid.UUID
 
 
-@dataclass(frozen=True, slots=True)
 class DeleteUserHandler(Handler[Request[None, None, State], DeleteUser, None]):
     gateway: InternalGateway
 

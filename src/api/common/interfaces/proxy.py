@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from typing import Any, cast
+from typing import Any
 
 from src.api.common.interfaces.dto import DTO
 from src.api.common.interfaces.handler import Handler, HandlerType
@@ -15,7 +15,7 @@ class AwaitableProxy[_: HandlerType]:
         "_kw",
     )
 
-    def __init__[T, Q: DTO, R: DTO | None](
+    def __init__[T, Q: DTO, R](
         self, handler: Handler[T, Q, R], request: T, qce: Q, **kw: Any
     ) -> None:
         self._handler = handler
@@ -23,9 +23,9 @@ class AwaitableProxy[_: HandlerType]:
         self._qte = qce
         self._kw = kw
 
-    def __await__[T, Q: DTO, R: DTO | None](
+    def __await__[T, Q: DTO, R](
         self: AwaitableProxy[Handler[T, Q, R]],
     ) -> Generator[Any, Any, R]:
-        result = yield from self._handler(self._request, self._qte, **self._kw).__await__()
-
-        return cast(R, result)
+        return (
+            yield from self._handler(self._request, self._qte, **self._kw).__await__()  # type: ignore[return-value]
+        )

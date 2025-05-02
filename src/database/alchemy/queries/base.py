@@ -19,40 +19,57 @@ from src.database.interfaces.query import Query
 DEFAULT_CHUNK_LIMIT: Final[int] = 100
 
 
+def _type_from_generic[E: Entity, R](
+    q: ExtendedQuery[E, R] | type[ExtendedQuery[E, R]],
+) -> type[E]:
+    orig_bases = getattr(q, "__orig_bases__", None)
+
+    assert orig_bases, "Generic type must be set"
+
+    query, *_ = orig_bases
+
+    entity: type[E]
+
+    if args := get_args(query):
+        entity, *_ = args
+
+        return entity
+
+    raise AttributeError(f"Query args were not specified: {args}")
+
+
 class ExtendedQuery[E: Entity, R](Query[AsyncSession, R]):
     _entity: type[E]
-    __slots__ = (
-        "_kw",
-        "_entity",
-    )
+    __slots__ = ("_kw",)
 
     def __init__(self, **kw: Any) -> None:
         self._kw = kw
 
+    def __init_subclass__(cls) -> None:
+        if not hasattr(cls, "_entity"):
+            cls._entity = _type_from_generic(cls)
+
+        return super().__init_subclass__()
+
     @property
     def entity(self) -> type[E]:
-        if getattr(self, "_entity", None):
-            return self._entity
+        entity = self.__class__._entity
 
-        orig_bases = getattr(self, "__orig_bases__", None)
-
-        assert orig_bases, "Generic type must be set"
-
-        query, *_ = orig_bases
-
-        entity, *_ = get_args(query)
-
-        assert entity and not is_typevar(entity) and issubclass(entity, Entity), (
-            "Generic first type must be a subclass of `Entity`"
+        assert not is_typevar(entity), (
+            f"The class `{type(self)} has an unbound type variable for the entity. "
+            "You need to specify a concrete entity type using the `with_` "
+            "method or by defining a subclass with specific entity type."
         )
 
-        self._entity = entity
-
-        return self._entity
+        return entity
 
     @classmethod
     def with_(cls, entity: type[E]) -> type[Self]:
-        return type(cls.__name__, (cls,), {"_entity": entity})
+        return type(
+            cls.__name__,
+            (cls,),
+            {"_entity": entity, "__slots__": cls.__slots__},
+        )
 
 
 class Create[E: Entity](ExtendedQuery[E, E | None]):
