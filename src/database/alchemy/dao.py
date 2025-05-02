@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
 from typing import Any, overload
 
@@ -84,3 +86,6 @@ class DAO[E: Entity]:
 
     async def exists(self, **filters: Any) -> bool:
         return await self._manager.send(base.Exists[E].with_(self._entity)(**filters))
+
+    def with_other(self, entity: type[E]) -> DAO[E]:
+        return type(self)(self._manager, entity)
