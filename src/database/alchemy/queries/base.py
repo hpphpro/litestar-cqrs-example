@@ -286,13 +286,7 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
 
         if result:
             last = result[-1]
-            assert hasattr(last, "created_at"), (
-                "To use UUID pagination you should have `created_at` field"
-            )
-            if len(result) < self.limit and self.limit > 1:
-                next_cursor = ""
-            else:
-                next_cursor = cursor_encoder((last.created_at, last.id), self.encoder, "UUID")
+            next_cursor = cursor_encoder((last.created_at, last.id), self.encoder, "UUID")
 
             return types.CursorPaginationResult(
                 items=result,
@@ -333,10 +327,7 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
 
         if result:
             last = result[-1]
-            if len(result) < self.limit and self.limit > 1:
-                next_cursor = ""
-            else:
-                next_cursor = cursor_encoder(last.id, self.encoder, "INTEGER")
+            next_cursor = cursor_encoder(last.id, self.encoder, "INTEGER")
 
             return types.CursorPaginationResult(
                 items=result,
