@@ -4,6 +4,7 @@ from typing import Any, Protocol, overload, runtime_checkable
 from litestar import Request
 from litestar.datastructures import State
 
+from src.api.common.interfaces.dto import DTO
 from src.api.common.interfaces.handler import Handler
 from src.api.common.interfaces.proxy import AwaitableProxy
 from src.api.v1.commands import user as user
@@ -36,8 +37,8 @@ class CommandBus(Protocol):
         id: uuid.UUID,
     ) -> AwaitableProxy[user.update.UpdateUserHandler]: ...
 
-    def send_unwrapped(
-        self, request: Any, qc: Any, /, **kw: Any
-    ) -> AwaitableProxy[Handler[Any, Any, Any]]: ...
+    def send_unwrapped[R, Q: DTO, T](
+        self, request: R, qc: Q, /, **kw: Any
+    ) -> AwaitableProxy[Handler[R, Q, T]]: ...
 
     __call__ = send_unwrapped  # type: ignore[misc]

@@ -46,7 +46,7 @@ class ExtendedQuery[E: Entity, R](Query[AsyncSession, R]):
         self._kw = kw
 
     def __init_subclass__(cls) -> None:
-        if not hasattr(cls, "_entity"):
+        if not hasattr(cls, "_entity") or is_typevar(cls._entity):
             cls._entity = _type_from_generic(cls)
 
         return super().__init_subclass__()
