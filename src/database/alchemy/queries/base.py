@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database._util import is_typevar
 from src.database.alchemy import types
 from src.database.alchemy.entity import Entity
+from src.database.alchemy.entity.base.core import pascal_to_snake
 from src.database.alchemy.tools import (
     cursor_decoder,
     cursor_encoder,
@@ -40,9 +41,9 @@ class ExtendedQuery[E: Entity, R](Query[AsyncSession, R]):
 
     @property
     def entity(self) -> type[E]:
-        entity = self.__class__._entity
+        entity: type[E] = self.__class__._entity
 
-        assert not is_typevar(entity), (
+        assert not is_typevar(entity) and isinstance(entity, type) and issubclass(entity, Entity), (
             f"The class `{type(self)} has an unbound type variable for the entity. "
             "You need to specify a concrete entity type using the `with_` "
             "method or by defining a subclass with specific entity type."
@@ -172,13 +173,7 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
     ) -> sa.Select[tuple[E]]:
         if not self.loads or not self.limit:
             return (
-                select_with_relations(
-                    *self.loads,
-                    entity=self.entity,
-                    _node=kw.pop("_node", None),
-                    self_key=kw.pop("self_key", None),
-                    **kw,
-                )
+                sa.select(self.entity)
                 .limit(self.limit)
                 .offset(self.offset)
                 .order_by(getattr(self.entity.id, self.order_by)())
@@ -191,7 +186,7 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
                 .offset(self.offset)
                 .order_by(getattr(self.entity.id, self.order_by)())
                 .where(*(self.clauses + list(clauses)))
-                .cte(name=ALIAS_NAME.format(name=self.entity.__name__.lower()))
+                .cte(name=ALIAS_NAME.format(name=pascal_to_snake(self.entity)))
             )
             query = sa.select(self.entity).where(self.entity.id.in_(sa.select(cte.c.id)))
 
@@ -247,12 +242,9 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
     async def __call__(
         self, conn: AsyncSession, /, **kw: Any
     ) -> types.CursorPaginationResult[str, E]:
-        if self.cursor_type == "integer":
-            return await self._paginate_integer(conn, **kw)
+        return await self._paginate(conn, **kw)
 
-        return await self._paginate_uuid(conn, **kw)
-
-    async def _paginate_uuid(
+    async def _paginate(
         self, conn: AsyncSession, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
     ) -> types.CursorPaginationResult[str, E]:
         entity_created_at = getattr(self.entity, "created_at", None)
@@ -260,45 +252,17 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
         assert entity_created_at, "To use UUID pagination you should have `created_at` field"
 
         if self.cursor:
-            created_at, id = cursor_decoder(self.cursor, self.decoder, "UUID")
+            id = cursor_decoder(self.cursor, self.decoder, self.cursor_type)  # type: ignore[call-overload]
             if self.order_by == "asc":
-                self.clauses.append(sa.tuple_(entity_created_at, self.entity.id) > (created_at, id))
+                self.clauses.append(self.entity.id > id)
             else:
-                self.clauses.append(sa.tuple_(entity_created_at, self.entity.id) < (created_at, id))
+                self.clauses.append(self.entity.id < id)
 
         result = (await conn.scalars(self._stmt(*clauses, **kw))).unique().all()
 
         if result:
             last = result[-1]
-            next_cursor = cursor_encoder((last.created_at, last.id), self.encoder, "UUID")  # type: ignore[call-overload,attr-defined]
-
-            return types.CursorPaginationResult(
-                items=result,
-                results_per_page=self.limit,
-                cursor=next_cursor,
-            )
-
-        return types.CursorPaginationResult(
-            items=[],
-            results_per_page=self.limit,
-            cursor="",
-        )
-
-    async def _paginate_integer(
-        self, conn: AsyncSession, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
-    ) -> types.CursorPaginationResult[str, E]:
-        if self.cursor:
-            decoded = cursor_decoder(self.cursor, self.decoder, "INTEGER")
-            if self.order_by == "asc":
-                self.clauses.append(self.entity.id > decoded)
-            else:
-                self.clauses.append(self.entity.id < decoded)
-
-        result = (await conn.scalars(self._stmt(*clauses, **kw))).unique().all()
-
-        if result:
-            last = result[-1]
-            next_cursor = cursor_encoder(last.id, self.encoder, "INTEGER")
+            next_cursor = cursor_encoder(last.id, self.encoder, self.cursor_type)  # type: ignore[call-overload]
 
             return types.CursorPaginationResult(
                 items=result,
@@ -315,36 +279,23 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
     def _stmt(self, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any) -> sa.Select[tuple[E]]:
         if not self.loads:
             query = (
-                select_with_relations(
-                    *self.loads,
-                    entity=self.entity,
-                    _node=kw.pop("_node", None),
-                    self_key=kw.pop("self_key", None),
-                    **kw,
-                )
+                sa.select(self.entity)
                 .limit(self.limit)
                 .order_by(
                     getattr(self.entity.id, self.order_by)(),
                 )
                 .where(*(self.clauses + list(clauses)))
             )
-            if self.cursor_type == "uuid":
-                query = query.order_by(getattr(self.entity.created_at, self.order_by)())  # type: ignore[attr-defined]
         else:
-            q = (
+            cte = (
                 sa.select(self.entity.id)
                 .limit(self.limit)
                 .order_by(getattr(self.entity.id, self.order_by)())
                 .where(*(self.clauses + list(clauses)))
+                .cte(name=ALIAS_NAME.format(name=pascal_to_snake(self.entity)))
             )
-            if self.cursor_type == "uuid":
-                q = q.order_by(getattr(self.entity.created_at, self.order_by)())  # type: ignore[attr-defined]
 
-            query = sa.select(self.entity).where(
-                self.entity.id.in_(
-                    sa.select(q.cte(name=ALIAS_NAME.format(name=self.entity.__name__.lower())).c.id)
-                )
-            )
+            query = sa.select(self.entity).where(self.entity.id.in_(sa.select(cte.c.id)))
 
         return select_with_relations(*self.loads, query=query, entity=self.entity, **kw)
 

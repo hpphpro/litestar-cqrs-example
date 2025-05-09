@@ -39,8 +39,12 @@ def on_app_init(config: Config, *router_state: RouterState) -> Callable[[AppConf
 
             app_config.middleware.append(
                 PrometheusConfig(
-                    app_name="_".join(config.app.title.split()) if config.app.title else "Example",
-                    prefix="_".join(config.app.title.split()) if config.app.title else "Example",
+                    app_name="_".join(config.app.title.split()).replace("-", "_")
+                    if config.app.title
+                    else "Example",
+                    prefix="_".join(config.app.title.split()).replace("-", "_")
+                    if config.app.title
+                    else "Example",
                 ).middleware
             )
             PrometheusController.get.include_in_schema = False

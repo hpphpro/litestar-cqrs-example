@@ -4,7 +4,6 @@ import base64
 import uuid
 from collections import deque
 from collections.abc import Callable
-from datetime import UTC, datetime
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, get_args, overload
 
@@ -196,14 +195,11 @@ def add_conditions[E: Entity](
 def cursor_encoder(value: int, encoder: types.JsonDumps, type: types.CursorIntegerType) -> str: ...
 @overload
 def cursor_encoder(
-    value: tuple[datetime, uuid.UUID], encoder: types.JsonDumps, type: types.CursorUUIDType
+    value: uuid.UUID, encoder: types.JsonDumps, type: types.CursorUUIDType
 ) -> str: ...
-def cursor_encoder(
-    value: tuple[datetime, uuid.UUID] | int, encoder: types.JsonDumps, type: types.CursorType
-) -> str:
-    if type.lower() == "uuid" and isinstance(value, tuple):
-        created_at, guid = value
-        encoded = base64.urlsafe_b64encode(encoder([created_at.timestamp(), guid.hex]).encode())
+def cursor_encoder(value: uuid.UUID | int, encoder: types.JsonDumps, type: types.CursorType) -> str:
+    if type.lower() == "uuid" and isinstance(value, uuid.UUID):
+        encoded = base64.urlsafe_b64encode(encoder(value.hex).encode())
     else:
         encoded = base64.urlsafe_b64encode(encoder(value).encode())
 
@@ -215,19 +211,13 @@ def cursor_decoder(value: str, decoder: types.JsonLoads, type: types.CursorInteg
 @overload
 def cursor_decoder(
     value: str, decoder: types.JsonLoads, type: types.CursorUUIDType
-) -> tuple[datetime, uuid.UUID]: ...
-def cursor_decoder(
-    value: str, decoder: types.JsonLoads, type: types.CursorType
-) -> tuple[datetime, uuid.UUID] | int:
+) -> uuid.UUID: ...
+def cursor_decoder(value: str, decoder: types.JsonLoads, type: types.CursorType) -> uuid.UUID | int:
+    decoded = decoder(base64.urlsafe_b64decode(value).decode())
     if type.lower() == "uuid":
-        decoded = decoder(base64.urlsafe_b64decode(value).decode())
-        created_at, guid = decoded
+        return uuid.UUID(decoded)
 
-        return datetime.fromtimestamp(created_at, UTC), uuid.UUID(guid)
-
-    result: int = decoder(base64.urlsafe_b64decode(value).decode())
-
-    return int(result)
+    return int(decoded)
 
 
 def get_entity_from_generic[E: Entity](self: Any, ensure_exists: bool = False) -> type[E]:
