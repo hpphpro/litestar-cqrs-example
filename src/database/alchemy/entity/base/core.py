@@ -10,12 +10,16 @@ def _filter_none(values: list[tuple[str, Any]]) -> dict[str, Any]:
     return {k: v for k, v in values if v is not None}
 
 
+def pascal_to_snake(obj: Any) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", getattr(obj, "__name__", "")).lower()
+
+
 class Entity(MappedAsDataclass, DeclarativeBase, init=False):
     id: Any
 
     @declared_attr.directive
     def __tablename__(cls) -> str:
-        return re.sub(r"(?<!^)(?=[A-Z])", "_", cls.__name__).lower()
+        return pascal_to_snake(cls)
 
     def as_dict(self, exclude_none: bool = True) -> dict[str, Any]:
         if exclude_none:

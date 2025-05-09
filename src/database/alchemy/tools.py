@@ -6,14 +6,20 @@ from collections import deque
 from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Final, overload
+from typing import TYPE_CHECKING, Any, Final, get_args, overload
 
-from sqlalchemy import ColumnExpressionArgument, Select, select, true
-from sqlalchemy.orm import RelationshipProperty, aliased, contains_eager, subqueryload
+from sqlalchemy import ColumnExpressionArgument, Select, select
+from sqlalchemy.orm import (
+    RelationshipProperty,
+    aliased,
+    contains_eager,
+    subqueryload,
+)
 
-from src.database._util import frozendict
+from src.database._util import frozendict, is_typevar
 from src.database.alchemy import types
 from src.database.alchemy.entity import MODELS_RELATIONSHIPS_NODE, Entity
+from src.database.alchemy.entity.base.core import pascal_to_snake
 
 
 if TYPE_CHECKING:
@@ -97,27 +103,31 @@ def _construct_loads[E: Entity](
             if limit is None:
                 load = _construct_strategy(subqueryload, relationship, load)
             else:
+                if origin is entity and self_key:
+                    alias = aliased(origin)
+                    query = query.outerjoin(alias, entity.id == getattr(alias, self_key))
+                    load = _construct_strategy(contains_eager, relationship, load, alias=alias)
+                    continue
+
                 q = (
                     select(origin)
                     .order_by(*(getattr(origin, by).desc() for by in order_by))
                     .limit(limit)
                 )
+                for key, condition in (subquery_cond or {}).items():
+                    if relationship.key == key:
+                        q = condition(q)
+
+                lateral = q.lateral(name=pascal_to_snake(origin))
+
                 if relationship.secondary is not None and relationship.secondaryjoin is not None:
-                    query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
+                    query = query.outerjoin(
+                        relationship.secondary, relationship.primaryjoin
+                    ).outerjoin(lateral, relationship.secondaryjoin)
                 else:
-                    if origin is entity and self_key:
-                        alias = aliased(origin)
-                        query = query.outerjoin(alias, entity.id == getattr(alias, self_key))
-                        load = _construct_strategy(contains_eager, relationship, load, alias=alias)
-                        continue
-
                     q = q.where(relationship.primaryjoin)
-                    for key, condition in (subquery_cond or {}).items():
-                        if relationship.key == key:
-                            q = condition(q)
+                    query = query.outerjoin(lateral, relationship.primaryjoin)
 
-                lateral = q.lateral().alias()
-                query = query.outerjoin(lateral, true())
                 load = _construct_strategy(contains_eager, relationship, load, alias=lateral)
         else:
             query = query.outerjoin(origin, relationship.primaryjoin)
@@ -218,3 +228,32 @@ def cursor_decoder(
     result: int = decoder(base64.urlsafe_b64decode(value).decode())
 
     return int(result)
+
+
+def get_entity_from_generic[E: Entity](self: Any, ensure_exists: bool = False) -> type[E]:
+    orig_bases = getattr(self, "__orig_bases__", None)
+
+    assert orig_bases, "Generic type must be set"
+
+    query, *_ = orig_bases
+
+    entity: type[E]
+
+    if args := get_args(query):
+        entity, *other = args
+
+        if not ensure_exists:
+            return entity
+
+        if not is_typevar(entity) and isinstance(entity, type) and issubclass(entity, Entity):
+            return entity
+
+        for arg in other:
+            if not is_typevar(arg) and isinstance(entity, type) and issubclass(arg, Entity):
+                entity = arg
+
+                return entity
+
+        raise AttributeError(f"Entity is not present in args: {args}")
+
+    raise AttributeError(f"Generic args were not specified for class: {self}")

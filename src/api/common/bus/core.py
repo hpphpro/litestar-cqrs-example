@@ -92,6 +92,14 @@ class QCBus:
         return BusBuilder()
 
 
+class AnyEventMarker:
+    def name(self) -> str:
+        return "any_event"
+
+    def serialize(self) -> bytes:
+        return b""
+
+
 class EventBus:
     __slots__ = ("_events",)
 
@@ -109,12 +117,15 @@ class EventBus:
     def register_any(
         self, *handlers: Callable[[], EventHandler[Event]] | EventHandler[Event]
     ) -> EventBus:
-        self.register(Event, *handlers)
+        self.register(AnyEventMarker, *handlers)
 
         return self
 
     async def publish[E: Event](self, event: E, /, **kw: Any) -> None:
-        handlers = self._events.get(type(event), []) or self._events.get(Event, [])
+        handlers = self._events.get(type(event), []) or self._events.get(AnyEventMarker, [])
+        if not handlers:
+            return
+
         asyncio.gather(
             *(_safe_invoke(event, _resolve_factory(task, EventHandler), **kw) for task in handlers)
         )

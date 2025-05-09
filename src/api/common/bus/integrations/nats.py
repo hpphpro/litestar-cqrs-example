@@ -23,7 +23,7 @@ class NatsBaseEventHandler(EventHandler[Event]):
     @override
     async def __call__(self, event: Event, /, **kw: Any) -> None:
         await self.client.publish(
-            event.name,
+            event.name(),
             payload=msgspec_encoder(event).encode(),
             reply=kw.pop("reply", self.client.new_inbox()),
             **kw,
@@ -36,4 +36,4 @@ class NatsJsEventHandler(EventHandler[Event]):
 
     @override
     async def __call__(self, event: Event, /, **kw: Any) -> None:
-        await self.js.publish(event.name, payload=msgspec_encoder(event).encode(), **kw)
+        await self.js.publish(event.name(), payload=msgspec_encoder(event).encode(), **kw)
