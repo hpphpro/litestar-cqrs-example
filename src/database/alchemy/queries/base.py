@@ -247,10 +247,6 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
     async def _paginate(
         self, conn: AsyncSession, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
     ) -> types.CursorPaginationResult[str, E]:
-        entity_created_at = getattr(self.entity, "created_at", None)
-
-        assert entity_created_at, "To use UUID pagination you should have `created_at` field"
-
         if self.cursor:
             id = cursor_decoder(self.cursor, self.decoder, self.cursor_type)  # type: ignore[call-overload]
             if self.order_by == "asc":

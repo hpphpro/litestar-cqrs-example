@@ -4,7 +4,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import Any, NoReturn
 
-from src.common.exceptions import AppException
+from src.common.exceptions import AppException, DetailedError
 
 
 def _raise_error(
@@ -26,7 +26,7 @@ def _raise_error(
 
 def on_error[**P, R](
     *uniques: str,
-    should_raise: type[AppException] | AppException = AppException,
+    should_raise: type[DetailedError] | DetailedError = DetailedError,
     base_message: str = "{reason} already in use",
     **additional: Any,
 ) -> Callable[

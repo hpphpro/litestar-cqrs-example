@@ -136,7 +136,7 @@ def _construct_loads[E: Entity](
 
 
 @lru_cache(typed=True)
-def select_with_relations[E: Entity](
+def _select_with_relations[E: Entity](
     *_should_load: str,
     entity: type[E],
     query: Select[tuple[E]] | None = None,
@@ -180,6 +180,32 @@ def select_with_relations[E: Entity](
         query = query.options(*options)
 
     return query
+
+
+def select_with_relations[E: Entity](
+    *_should_load: str,
+    entity: type[E],
+    query: Select[tuple[E]] | None = None,
+    order_by: tuple[str, ...] = ("id",),
+    limit: int | None = DEFAULT_RELATIONSHIP_LOAD_LIMIT,
+    self_key: str | None = None,
+    subquery_cond: frozendict[
+        str,
+        Callable[[Select[tuple[E]]], Select[tuple[E]]],
+    ]
+    | None = None,
+    _node: frozendict[type[Entity], tuple[RelationshipProperty[type[Entity]]]] | None = None,
+) -> Select[tuple[E]]:
+    return _select_with_relations(
+        *_should_load,
+        entity=entity,
+        query=query,
+        order_by=order_by,
+        limit=limit,
+        self_key=self_key,
+        subquery_cond=subquery_cond,
+        _node=_node,
+    )
 
 
 def add_conditions[E: Entity](
