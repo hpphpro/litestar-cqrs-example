@@ -173,7 +173,7 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
     ) -> sa.Select[tuple[E]]:
         if not self.loads or not self.limit:
             return (
-                sa.select(self.entity)
+                select_with_relations(*self.loads, entity=self.entity, **kw)
                 .limit(self.limit)
                 .offset(self.offset)
                 .order_by(getattr(self.entity.id, self.order_by)())
