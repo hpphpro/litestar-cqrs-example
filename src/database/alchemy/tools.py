@@ -7,7 +7,7 @@ from collections.abc import Callable
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, get_args, overload
 
-from sqlalchemy import ColumnExpressionArgument, Select, select
+from sqlalchemy import ColumnExpressionArgument, Select, select, text, true
 from sqlalchemy.orm import (
     RelationshipProperty,
     aliased,
@@ -18,7 +18,6 @@ from sqlalchemy.orm import (
 from src.database._util import frozendict, is_typevar
 from src.database.alchemy import types
 from src.database.alchemy.entity import MODELS_RELATIONSHIPS_NODE, Entity
-from src.database.alchemy.entity.base.core import pascal_to_snake
 
 
 if TYPE_CHECKING:
@@ -103,6 +102,7 @@ def _construct_loads[E: Entity](
                 load = _construct_strategy(subqueryload, relationship, load)
             else:
                 if origin is entity and self_key:
+                    assert self_key, "`self_key` should be set for self join"
                     alias = aliased(origin)
                     query = query.outerjoin(alias, entity.id == getattr(alias, self_key))
                     load = _construct_strategy(contains_eager, relationship, load, alias=alias)
@@ -117,16 +117,14 @@ def _construct_loads[E: Entity](
                     if relationship.key == key:
                         q = condition(q)
 
-                lateral = q.lateral(name=pascal_to_snake(origin))
-
                 if relationship.secondary is not None and relationship.secondaryjoin is not None:
-                    query = query.outerjoin(
-                        relationship.secondary, relationship.primaryjoin
-                    ).outerjoin(lateral, relationship.secondaryjoin)
+                    q = q.where(text(str(relationship.secondaryjoin.compile())))
+                    query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
                 else:
-                    q = q.where(relationship.primaryjoin)
-                    query = query.outerjoin(lateral, relationship.primaryjoin)
+                    q = q.where(text(str(relationship.primaryjoin.compile())))
 
+                lateral = q.lateral(name=origin.__tablename__)
+                query = query.outerjoin(lateral, true())
                 load = _construct_strategy(contains_eager, relationship, load, alias=lateral)
         else:
             query = query.outerjoin(origin, relationship.primaryjoin)
@@ -135,7 +133,7 @@ def _construct_loads[E: Entity](
     return query, load
 
 
-@lru_cache(typed=True)
+@lru_cache(typed=True, maxsize=1028)
 def _select_with_relations[E: Entity](
     *_should_load: str,
     entity: type[E],

@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database._util import is_typevar
 from src.database.alchemy import types
 from src.database.alchemy.entity import Entity
-from src.database.alchemy.entity.base.core import pascal_to_snake
 from src.database.alchemy.tools import (
     cursor_decoder,
     cursor_encoder,
@@ -186,9 +185,13 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
                 .offset(self.offset)
                 .order_by(getattr(self.entity.id, self.order_by)())
                 .where(*(self.clauses + list(clauses)))
-                .cte(name=ALIAS_NAME.format(name=pascal_to_snake(self.entity)))
+                .cte(name=ALIAS_NAME.format(name=self.entity.__tablename__))
             )
-            query = sa.select(self.entity).where(self.entity.id.in_(sa.select(cte.c.id)))
+            query = (
+                sa.select(self.entity)
+                .where(self.entity.id.in_(sa.select(cte.c.id)))
+                .order_by(getattr(self.entity.id, self.order_by)())
+            )
 
             return select_with_relations(*self.loads, entity=self.entity, query=query, **kw)
 
@@ -288,10 +291,14 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
                 .limit(self.limit)
                 .order_by(getattr(self.entity.id, self.order_by)())
                 .where(*(self.clauses + list(clauses)))
-                .cte(name=ALIAS_NAME.format(name=pascal_to_snake(self.entity)))
+                .cte(name=ALIAS_NAME.format(name=self.entity.__tablename__))
             )
 
-            query = sa.select(self.entity).where(self.entity.id.in_(sa.select(cte.c.id)))
+            query = (
+                sa.select(self.entity)
+                .where(self.entity.id.in_(sa.select(cte.c.id)))
+                .order_by(getattr(self.entity.id, self.order_by)())
+            )
 
         return select_with_relations(*self.loads, query=query, entity=self.entity, **kw)
 
