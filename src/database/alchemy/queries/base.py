@@ -171,7 +171,7 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
         self, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
     ) -> sa.Select[tuple[E]]:
         if not self.loads or not self.limit:
-            return (
+            query = (
                 select_with_relations(*self.loads, entity=self.entity, **kw)
                 .limit(self.limit)
                 .offset(self.offset)
@@ -187,13 +187,14 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
                 .where(*(self.clauses + list(clauses)))
                 .cte(name=ALIAS_NAME.format(name=self.entity.__tablename__))
             )
+
             query = (
-                sa.select(self.entity)
+                select_with_relations(*self.loads, entity=self.entity, **kw)
                 .where(self.entity.id.in_(sa.select(cte.c.id)))
                 .order_by(getattr(self.entity.id, self.order_by)())
             )
 
-            return select_with_relations(*self.loads, entity=self.entity, query=query, **kw)
+        return query
 
     def _count_stmt(self, *clauses: sa.ColumnExpressionArgument[bool]) -> sa.Select[tuple[int]]:
         return (
@@ -295,12 +296,12 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
             )
 
             query = (
-                sa.select(self.entity)
+                select_with_relations(*self.loads, entity=self.entity, **kw)
                 .where(self.entity.id.in_(sa.select(cte.c.id)))
                 .order_by(getattr(self.entity.id, self.order_by)())
             )
 
-        return select_with_relations(*self.loads, query=query, entity=self.entity, **kw)
+        return query
 
 
 class Update[E: Entity](ExtendedQuery[E, Sequence[E]]):
