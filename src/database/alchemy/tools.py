@@ -5,7 +5,7 @@ import uuid
 from collections import deque
 from collections.abc import Callable
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Final, get_args, overload
+from typing import TYPE_CHECKING, Any, Final, Literal, get_args, overload
 
 from sqlalchemy import ColumnExpressionArgument, Select, select, text, true
 from sqlalchemy.orm import (
@@ -14,6 +14,7 @@ from sqlalchemy.orm import (
     contains_eager,
     subqueryload,
 )
+from sqlalchemy.sql.selectable import LateralFromClause
 
 from src.database._util import frozendict, is_typevar
 from src.database.alchemy import types
@@ -71,6 +72,42 @@ def _construct_strategy[EntityT: Entity](
     return _strategy
 
 
+def _load_self[E: Entity](
+    query: Select[tuple[E]],
+    entity: type[E],
+    origin: type[E],
+    side: Literal["many", "one"],
+    relationship: RelationshipProperty[E],
+    self_key: str,
+    order_by: tuple[str, ...],
+    limit: int | None = None,
+    load: _AbstractLoad | None = None,
+) -> tuple[Select[tuple[E]], _AbstractLoad]:
+    name = f"{origin.__tablename__}_alias"
+    alias: LateralFromClause | type[E]
+
+    alias = aliased(origin, name=name)
+    if side == "many":
+        if limit:
+            lateral = (
+                select(alias)
+                .order_by(*(getattr(origin, by).desc() for by in order_by))
+                .limit(limit)
+                .where(entity.id == getattr(alias, self_key))
+                .lateral(name)
+            )
+            query = query.outerjoin(lateral, true())
+            alias = lateral
+        else:
+            query = query.outerjoin(alias, entity.id == getattr(alias, self_key))
+    else:
+        query = query.outerjoin(alias, getattr(entity, self_key) == alias.id)
+
+    load = _construct_strategy(contains_eager, relationship, load, alias=alias)
+
+    return query, load
+
+
 def _construct_loads[E: Entity](
     entity: type[E],
     query: Select[tuple[E]],
@@ -97,25 +134,30 @@ def _construct_loads[E: Entity](
 
         exclude.add(origin)
 
+        if origin is entity:
+            assert self_key, "`self_key` should be set for self join"
+            if relationship.uselist:
+                query, load = _load_self(
+                    query, entity, origin, "many", relationship, self_key, order_by, limit, load
+                )
+            else:
+                query, load = _load_self(
+                    query, entity, origin, "one", relationship, self_key, order_by, limit, load
+                )
+            continue
+
         if relationship.uselist:
             if limit is None:
                 load = _construct_strategy(subqueryload, relationship, load)
             else:
-                if origin is entity and self_key:
-                    assert self_key, "`self_key` should be set for self join"
-                    alias = aliased(origin)
-                    query = query.outerjoin(alias, entity.id == getattr(alias, self_key))
-                    load = _construct_strategy(contains_eager, relationship, load, alias=alias)
-                    continue
-
                 q = (
                     select(origin)
                     .order_by(*(getattr(origin, by).desc() for by in order_by))
                     .limit(limit)
                 )
-                for key, condition in (subquery_cond or {}).items():
-                    if relationship.key == key:
-                        q = condition(q)
+                condition = subquery_cond.get(relationship.key) if subquery_cond else None
+                if condition:
+                    q = condition(q)
 
                 if relationship.secondary is not None and relationship.secondaryjoin is not None:
                     q = q.where(text(str(relationship.secondaryjoin.compile())))

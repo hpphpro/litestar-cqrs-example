@@ -1,9 +1,12 @@
 import re
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Final
 
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
+
+
+PASCAL_TO_SNAKE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(?<!^)(?=[A-Z])")
 
 
 def _filter_none(values: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -11,7 +14,7 @@ def _filter_none(values: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def pascal_to_snake(obj: Any) -> str:
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", getattr(obj, "__name__", "")).lower()
+    return PASCAL_TO_SNAKE_PATTERN.sub("_", getattr(obj, "__name__", "")).lower()
 
 
 class Entity(MappedAsDataclass, DeclarativeBase, init=False):
