@@ -12,6 +12,7 @@ from sqlalchemy.orm import (
     RelationshipProperty,
     aliased,
     contains_eager,
+    selectinload,
     subqueryload,
 )
 from sqlalchemy.sql.selectable import LateralFromClause
@@ -82,20 +83,29 @@ def _load_self[E: Entity](
     order_by: tuple[str, ...],
     limit: int | None = None,
     load: _AbstractLoad | None = None,
+    subquery_cond: frozendict[
+        str,
+        Callable[[Select[tuple[E]]], Select[tuple[E]]],
+    ]
+    | None = None,
 ) -> tuple[Select[tuple[E]], _AbstractLoad]:
-    name = f"{origin.__tablename__}_alias"
+    name = f"{origin.__tablename__}_{relationship.key}"
     alias: LateralFromClause | type[E]
 
     alias = aliased(origin, name=name)
     if side == "many":
         if limit:
-            lateral = (
+            q = (
                 select(alias)
                 .order_by(*(getattr(origin, by).desc() for by in order_by))
                 .limit(limit)
                 .where(entity.id == getattr(alias, self_key))
-                .lateral(name)
             )
+            condition = subquery_cond.get(relationship.key) if subquery_cond else None
+            if condition:
+                q = condition(q)
+
+            lateral = q.lateral(name=name)
             query = query.outerjoin(lateral, true())
             alias = lateral
         else:
@@ -108,12 +118,86 @@ def _load_self[E: Entity](
     return query, load
 
 
+def _load_relationship[E: Entity](
+    origin: type[E],
+    entity: type[E],
+    query: Select[tuple[E]],
+    relationship: RelationshipProperty[E],
+    order_by: tuple[str, ...],
+    subquery_cond: frozendict[
+        str,
+        Callable[[Select[tuple[E]]], Select[tuple[E]]],
+    ]
+    | None = None,
+    load: _AbstractLoad | None = None,
+    limit: int | None = None,
+    self_key: str | None = None,
+    is_alias: bool = False,
+) -> tuple[Select[tuple[E]], _AbstractLoad | None]:
+    if origin is entity:
+        assert self_key, "`self_key` should be set for self join"
+        if relationship.uselist:
+            query, load = _load_self(
+                query,
+                entity,
+                origin,
+                "many",
+                relationship,
+                self_key,
+                order_by,
+                limit,
+                load,
+                subquery_cond,
+            )
+        else:
+            query, load = _load_self(
+                query, entity, origin, "one", relationship, self_key, order_by, limit, load
+            )
+
+        return query, load
+
+    if relationship.uselist:
+        if limit is None:
+            load = _construct_strategy(subqueryload, relationship, load)
+        else:
+            q = (
+                select(origin)
+                .order_by(*(getattr(origin, by).desc() for by in order_by))
+                .limit(limit)
+            )
+            condition = subquery_cond.get(relationship.key) if subquery_cond else None
+            if condition:
+                q = condition(q)
+
+            if relationship.secondary is not None and relationship.secondaryjoin is not None:
+                q = q.where(text(str(relationship.secondaryjoin.compile())))
+                query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
+            else:
+                q = q.where(text(str(relationship.primaryjoin.compile())))
+
+            lateral = (
+                q.lateral(name=origin.__tablename__)
+                if not is_alias
+                else q.lateral(name=f"{origin.__tablename__}_{relationship.key}")
+            )
+            query = query.outerjoin(lateral, true())
+            load = _construct_strategy(contains_eager, relationship, load, alias=lateral)
+    else:
+        if is_alias:
+            load = _construct_strategy(selectinload, relationship, load)
+        else:
+            query = query.outerjoin(origin, relationship.primaryjoin)
+            load = _construct_strategy(contains_eager, relationship, load)
+
+    return query, load
+
+
 def _construct_loads[E: Entity](
     entity: type[E],
     query: Select[tuple[E]],
     relationships: list[RelationshipProperty[E]],
     order_by: tuple[str, ...],
-    exclude: set[type[E]],
+    exclude: set[type[E] | str],
     subquery_cond: frozendict[
         str,
         Callable[[Select[tuple[E]]], Select[tuple[E]]],
@@ -128,49 +212,38 @@ def _construct_loads[E: Entity](
     load: _AbstractLoad | None = None
     for relationship in relationships:
         origin = relationship.mapper.class_
+        key = relationship.key
 
         if origin in exclude:
+            if key not in exclude:
+                query, load = _load_relationship(
+                    origin,
+                    entity,
+                    query,
+                    relationship,
+                    order_by,
+                    subquery_cond,
+                    load,
+                    limit,
+                    self_key,
+                    True,
+                )
             continue
 
         exclude.add(origin)
-
-        if origin is entity:
-            assert self_key, "`self_key` should be set for self join"
-            if relationship.uselist:
-                query, load = _load_self(
-                    query, entity, origin, "many", relationship, self_key, order_by, limit, load
-                )
-            else:
-                query, load = _load_self(
-                    query, entity, origin, "one", relationship, self_key, order_by, limit, load
-                )
-            continue
-
-        if relationship.uselist:
-            if limit is None:
-                load = _construct_strategy(subqueryload, relationship, load)
-            else:
-                q = (
-                    select(origin)
-                    .order_by(*(getattr(origin, by).desc() for by in order_by))
-                    .limit(limit)
-                )
-                condition = subquery_cond.get(relationship.key) if subquery_cond else None
-                if condition:
-                    q = condition(q)
-
-                if relationship.secondary is not None and relationship.secondaryjoin is not None:
-                    q = q.where(text(str(relationship.secondaryjoin.compile())))
-                    query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
-                else:
-                    q = q.where(text(str(relationship.primaryjoin.compile())))
-
-                lateral = q.lateral(name=origin.__tablename__)
-                query = query.outerjoin(lateral, true())
-                load = _construct_strategy(contains_eager, relationship, load, alias=lateral)
-        else:
-            query = query.outerjoin(origin, relationship.primaryjoin)
-            load = _construct_strategy(contains_eager, relationship, load)
+        exclude.add(key)
+        query, load = _load_relationship(
+            origin,
+            entity,
+            query,
+            relationship,
+            order_by,
+            subquery_cond,
+            load,
+            limit,
+            self_key,
+            False,
+        )
 
     return query, load
 
@@ -197,7 +270,7 @@ def _select_with_relations[E: Entity](
 
     options = []
     to_load = list(_should_load)
-    exclude: set[type[E]] = set()
+    exclude: set[type[E] | str] = set()
     while to_load:
         result = _bfs_search(entity, to_load.pop(), _node)
 

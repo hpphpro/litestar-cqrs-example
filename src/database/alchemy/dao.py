@@ -87,5 +87,5 @@ class DAO[E: Entity]:
     async def exists(self, **filters: Any) -> bool:
         return await self._manager.send(base.Exists[E].with_(self._entity)(**filters))
 
-    def with_other(self, entity: type[E]) -> DAO[E]:
-        return type(self)(self._manager, entity)
+    def with_other[O: Entity](self, entity: type[O]) -> DAO[O]:
+        return DAO[O](self._manager, entity)

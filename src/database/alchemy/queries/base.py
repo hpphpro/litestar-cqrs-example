@@ -102,13 +102,7 @@ class GetOne[E: Entity](ExtendedQuery[E, E | None]):
 
     @override
     async def __call__(self, conn: AsyncSession, /, **kw: Any) -> E | None:
-        stmt = select_with_relations(
-            *self._loads,
-            entity=self.entity,
-            _node=kw.pop("_node", None),
-            self_key=kw.pop("self_key", None),
-            **kw,
-        ).where(*self._clauses)
+        stmt = select_with_relations(*self._loads, entity=self.entity, **kw).where(*self._clauses)
 
         if self._lock:
             stmt = stmt.with_for_update()
@@ -171,12 +165,14 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
         self, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
     ) -> sa.Select[tuple[E]]:
         if not self.loads or not self.limit:
+            self.clauses.extend(clauses)
+
             query = (
                 select_with_relations(*self.loads, entity=self.entity, **kw)
                 .limit(self.limit)
                 .offset(self.offset)
                 .order_by(getattr(self.entity.id, self.order_by)())
-                .where(*(self.clauses + list(clauses)))
+                .where(*self.clauses)
             )
         else:
             cte = (
@@ -184,14 +180,15 @@ class GetManyByOffset[E: Entity](ExtendedQuery[E, types.OffsetPaginationResult[E
                 .limit(self.limit)
                 .offset(self.offset)
                 .order_by(getattr(self.entity.id, self.order_by)())
-                .where(*(self.clauses + list(clauses)))
+                .where(*self.clauses)
                 .cte(name=ALIAS_NAME.format(name=self.entity.__tablename__))
             )
 
             query = (
                 select_with_relations(*self.loads, entity=self.entity, **kw)
-                .where(self.entity.id.in_(sa.select(cte.c.id)))
+                .join(cte, self.entity.id == cte.c.id)
                 .order_by(getattr(self.entity.id, self.order_by)())
+                .where(*clauses)
             )
 
         return query
@@ -278,27 +275,30 @@ class GetManyByCursor[E: Entity](ExtendedQuery[E, types.CursorPaginationResult[s
 
     def _stmt(self, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any) -> sa.Select[tuple[E]]:
         if not self.loads:
+            self.clauses.extend(clauses)
+
             query = (
                 sa.select(self.entity)
                 .limit(self.limit)
                 .order_by(
                     getattr(self.entity.id, self.order_by)(),
                 )
-                .where(*(self.clauses + list(clauses)))
+                .where(*self.clauses)
             )
         else:
             cte = (
                 sa.select(self.entity.id)
                 .limit(self.limit)
                 .order_by(getattr(self.entity.id, self.order_by)())
-                .where(*(self.clauses + list(clauses)))
+                .where(*self.clauses)
                 .cte(name=ALIAS_NAME.format(name=self.entity.__tablename__))
             )
 
             query = (
                 select_with_relations(*self.loads, entity=self.entity, **kw)
-                .where(self.entity.id.in_(sa.select(cte.c.id)))
+                .join(cte, self.entity.id == cte.c.id)
                 .order_by(getattr(self.entity.id, self.order_by)())
+                .where(*clauses)
             )
 
         return query
@@ -332,7 +332,6 @@ class Delete[E: Entity](ExtendedQuery[E, Sequence[E]]):
     __slots__ = ("clauses",)
 
     def __init__(self, **kw: Any) -> None:
-        # assert kw, "At least one identifier must be provided"
         self.clauses: list[sa.ColumnExpressionArgument[bool]] = [
             getattr(self.entity, k) == v for k, v in kw.items() if v is not None
         ]
@@ -390,10 +389,10 @@ class Count[E: Entity](ExtendedQuery[E, int]):
     async def _get_total(
         self, conn: AsyncSession, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any
     ) -> int:
+        self.clauses.extend(clauses)
+
         result = await conn.execute(
-            sa.select(sa.func.count())
-            .select_from(self.entity)
-            .where(*(self.clauses + list(clauses)))
+            sa.select(sa.func.count()).select_from(self.entity).where(*self.clauses)
         )
 
         return result.scalar() or 0
@@ -434,8 +433,10 @@ class IterChunked[E: Entity](ExtendedQuery[E, AsyncIterator[E]]):
             yield chunk
 
     def _stmt(self, *clauses: sa.ColumnExpressionArgument[bool], **kw: Any) -> sa.Select[tuple[E]]:
+        self.clauses.extend(clauses)
+
         return (
             select_with_relations(*self.loads, entity=self.entity, **kw)
             .order_by(getattr(self.entity.id, self.order_by)())
-            .where(*(self.clauses + list(clauses)))
+            .where(*self.clauses)
         )

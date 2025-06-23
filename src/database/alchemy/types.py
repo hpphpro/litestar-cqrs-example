@@ -19,12 +19,12 @@ class CursorPaginationResult[C, T]:
     cursor: C | None
 
 
-OrderBy = Literal["ASC", "DESC"]
-JsonLoads = Callable[..., Any]
-JsonDumps = Callable[..., str]
-CursorIntegerType = Literal["INTEGER"]
-CursorUUIDType = Literal["UUID"]
-CursorType = Literal[CursorUUIDType, CursorIntegerType]
+type OrderBy = Literal["ASC", "DESC"]
+type JsonLoads = Callable[..., Any]
+type JsonDumps = Callable[..., str]
+type CursorIntegerType = Literal["INTEGER"]
+type CursorUUIDType = Literal["UUID"]
+type CursorType = Literal[CursorUUIDType, CursorIntegerType]
 
 
 class UserCreate(TypedDict):

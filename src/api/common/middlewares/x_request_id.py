@@ -11,7 +11,7 @@ from uuid_utils import uuid7
 class XRequestIdMiddleware(ASGIMiddleware):
     header_name: Final[str] = "X-Request-Id"
 
-    def __init__(self, scopes: tuple[ScopeType, ...] = (ScopeType.HTTP,)) -> None:
+    def __init__(self, scopes: tuple[ScopeType, ...] = (ScopeType.HTTP, ScopeType.ASGI)) -> None:
         self.scopes = scopes
 
     async def handle(

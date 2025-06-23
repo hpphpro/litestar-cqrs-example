@@ -28,7 +28,7 @@ class QueryBus(Protocol):
     ) -> AwaitableProxy[user.get.GetManyOffsetUserHandler]: ...
 
     def send_unwrapped[R, Q: DTO, T](
-        self, request: Any, qc: Any, /, **kw: Any
+        self, request: R, qc: Q, /, **kw: Any
     ) -> AwaitableProxy[Handler[R, Q, T]]: ...
 
     __call__ = send_unwrapped  # type: ignore[misc]
