@@ -40,7 +40,7 @@ class ToOwned[T: Mapping[str, Any] | _typeshed.DataclassInstance]:
     """
     Base mixin for auto-dataclass query wrappers.
     If a subclass is not a dataclass, `__init_subclass__`
-    wraps it with `@dataclass(slots=True, ...)`.
+    wraps it with `@dataclass(frozen=True, ...)`.
     `.to_owned()` converts the query instance back to the `owned` type (Mapping or dataclass).
     """
 
