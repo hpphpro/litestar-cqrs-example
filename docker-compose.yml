@@ -1,4 +1,5 @@
 services:
+
   api:
     profiles: [ "api" ]
     image: service
@@ -33,6 +34,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 0s
+
   database_backup:
     profiles: [ "api" ]
     build:

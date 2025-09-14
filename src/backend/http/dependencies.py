@@ -86,8 +86,8 @@ def setup_dependencies(app_config: AppConfig, backend_config: BackendConfig) -> 
 
     m_conn = ConnectionFactory.from_url(
         backend_config.db.url(use_replica=False),
-        pool_size=m_conf.pool_size,
-        max_overflow=m_conf.overflow,
+        pool_size=m_conf.min_connections,
+        max_overflow=m_conf.max_connections,
         pool_timeout=min(30, backend_config.db.connection_timeout),
         pool_pre_ping=backend_config.db.ping_connection,
         json_serializer=msgspec_encoder,
@@ -96,8 +96,8 @@ def setup_dependencies(app_config: AppConfig, backend_config: BackendConfig) -> 
     )
     r_conn = ConnectionFactory.from_url(
         backend_config.db.url(use_replica=True),
-        pool_size=r_conf.pool_size,
-        max_overflow=r_conf.overflow,
+        pool_size=r_conf.min_connections,
+        max_overflow=r_conf.max_connections,
         pool_timeout=min(30, backend_config.db.connection_timeout),
         pool_pre_ping=backend_config.db.ping_connection,
         json_serializer=msgspec_encoder,

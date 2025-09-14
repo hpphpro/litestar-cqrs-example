@@ -336,7 +336,7 @@ class GetManyByCursor[E: Entity](ExtendedQueryWithFilters[E, CursorPaginationRes
                 "uuid" if get_primary_key(self.entity).type.python_type is uuid.UUID else "integer"
             )
         )
-        self.clauses: list[Any] = [
+        self.clauses: list[sa.ColumnExpressionArgument[bool]] = [
             getattr(self.entity, k) == v for k, v in eq_filters.items() if v is not None
         ]
 

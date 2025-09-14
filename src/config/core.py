@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import _typeshed
 
 type ServerType = Literal["granian", "uvicorn", "gunicorn"]
+type Strategy = Literal["stable", "throughput"]
 
 
 def root_dir() -> Path:
@@ -146,13 +147,10 @@ class SecurityConfig(BaseSettings):
     refresh_token_expire_seconds: int = 0
 
 
-type Strategy = Literal["stable", "throughput"]
-
-
 @dataclass(slots=True, frozen=True)
 class PoolPerWorkerData:
-    pool_size: int
-    overflow: int
+    min_connections: int
+    max_connections: int
 
 
 class BackendConfig(BaseSettings):
@@ -182,18 +180,18 @@ class BackendConfig(BaseSettings):
 
         per_worker_max = max(1, math.ceil(total_max / workers))
         if strategy == "stable":
-            pool_size = max(1, total_min // workers)
-            overflow = max(0, per_worker_max - pool_size)
+            min_connections = max(1, total_min // workers)
+            max_connections = max(0, per_worker_max - min_connections)
         else:
-            pool_size = max(1, per_worker_max - max(0, overflow_target_per_worker))
+            min_connections = max(1, per_worker_max - max(0, overflow_target_per_worker))
 
-            pool_size = max(pool_size, math.ceil(total_min / workers))
+            min_connections = max(min_connections, math.ceil(total_min / workers))
 
-            pool_size = min(pool_size, per_worker_max)
+            min_connections = min(min_connections, per_worker_max)
 
-            overflow = max(0, per_worker_max - pool_size)
+            max_connections = max(0, per_worker_max - min_connections)
 
-        return PoolPerWorkerData(pool_size, overflow)
+        return PoolPerWorkerData(min_connections, max_connections)
 
     def compute_concurrency_limit(
         self,
