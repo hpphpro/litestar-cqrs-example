@@ -36,6 +36,7 @@ class GetUserPermission(ExtendedQuery[entity.User, Permission | None]):
             ),
             params={"user_id": self.user_id, "permission_key": self.permission_key},
         )
+
         data = result.mappings().first()
 
         if not data:
