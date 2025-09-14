@@ -1,0 +1,118 @@
+[project]
+name = "litestar_cqrs_example"
+version = "0.1.0"
+description = "CQRS litestar example"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.14.1",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.30.0",
+    "granian>=1.7.6",
+    "greenlet>=3.1.1",
+    "gunicorn>=23.0.0",
+    "litestar[opentelemetry,prometheus]>=2.14.0",
+    "pydantic-settings>=2.7.1",
+    "pyjwt>=2.10.1",
+    "redis>=5.2.1",
+    "sqlalchemy>=2.0.37",
+    "types-redis>=4.6.0.20241004",
+    "uuid-utils>=0.10.0",
+    "uvicorn>=0.34.0",
+    "uvloop>=0.21.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "nats-py>=2.9.0",
+    "pre-commit>=4.1.0",
+    "ruff>=0.9.4",
+    "pytest>=8.3.4",
+    "testcontainers>=4.9.1",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["backend*", 'config*']
+
+[tool.mypy]
+warn_unused_ignores = false
+follow_imports_for_stubs = true
+ignore_missing_imports = true
+show_absolute_path = true
+hide_error_codes = false
+show_error_context = true
+strict = true
+warn_unreachable = true
+warn_no_return = true
+cache_dir = ".mypy_cache"
+exclude = "migrations/.*"
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+packages = ["backend", "tests", "config"]
+
+
+[tool.ruff]
+src = ["src"]
+target-version = "py312"
+include = ["src/**.py"]
+extend-exclude = [
+    "**/migrations/*.py",
+    "tests/**.py"
+]
+lint.select = [
+    "ALL",
+]
+lint.ignore = [
+    "ARG",
+    "ANN",
+    "D",
+    "EM101",
+    "EM102",
+    "PT001",
+    "PT023",
+    "SIM108",
+    "RET505",
+    "PLR0913",
+    "PLC0415",
+    "SIM103",
+    "ISC003",
+    "COM812",
+    "SIM114",
+    "TC001",
+    "TC002",
+    "TC003",
+    "TC006",
+    "S101",
+    'TRY003',
+    'B008',
+    'RUF012',
+    'A005',
+]
+line-length = 100
+
+[tool.ruff.format]
+preview = true
+docstring-code-format = true
+docstring-code-line-length = 72
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = 'ignore::DeprecationWarning'
+python_files = "test_*.py"
+pythonpath = "src"
+xfail_strict = true
+log_level = "DEBUG"

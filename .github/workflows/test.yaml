@@ -1,0 +1,48 @@
+name: ServiceTest
+
+on:
+  workflow_call:
+  pull_request:
+    branches: [ main, dev ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        task: [ lint, test ]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run task
+        run: |
+          if [ "${{ matrix.task }}" = "lint" ]; then
+            uv run pre-commit run --all-files
+          else
+            uv run pytest -q tests
+          fi

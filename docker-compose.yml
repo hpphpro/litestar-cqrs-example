@@ -1,0 +1,305 @@
+services:
+  api:
+    profiles: [ "api" ]
+    image: service
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: service.api
+    restart: unless-stopped
+    networks:
+      - service.database.primary.network
+      - service.redis.network
+      - service.prometheus.network
+    working_dir: /app
+    volumes:
+      - ./:/app/
+      - /app/.venv
+    depends_on:
+      database_primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: /bin/sh -c 'alembic upgrade head && python -Om src.backend'
+    expose:
+      - ${SERVER_PORT}
+    ports:
+      - '127.0.0.1:${SERVER_PORT}:${SERVER_PORT}'
+    environment:
+      - PYTHONPATH=/app/src
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://127.0.0.1:${SERVER_PORT}/api/v1/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 0s
+  database_backup:
+    profiles: [ "api" ]
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: service.database_backup
+    restart: always
+    depends_on:
+      database_primary:
+        condition: service_healthy
+    volumes:
+      - ${DB_BACKUP_DIR:-./.backups}:/backup
+    networks:
+      - service.database.primary.network
+    command: >
+      bash -c "while true; do
+        echo \"Starting backup for database $$POSTGRES_DB with user $$POSTGRES_USER\";
+        PGPASSWORD=$$POSTGRES_PASSWORD pg_dump -h service.database.primary -U \"$$POSTGRES_USER\" \"$$POSTGRES_DB\" > /backup/$$(date +%Y-%m-%d-%H-%M-%S).sql;
+        echo \"Backup done at $$(date +%Y-%m-%d_%H:%M:%S)\";
+        ls -1 /backup/*.sql | head -n -2 | xargs rm -f;
+        sleep $$DB_BACKUP_INTERVAL;
+      done"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      DB_BACKUP_INTERVAL: ${DB_BACKUP_INTERVAL:-86400}
+
+  database_primary:
+    profiles: ["api", "migration"]
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    restart: unless-stopped
+    container_name: service.database.primary
+    hostname: service.database.primary
+    volumes:
+      - service.database.primary.data:/var/lib/postgresql/data/:rw
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./sql/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --data-checksums
+      - REPLICA_PASSWORD=${DB_REPLICA_PASSWORD}
+      - REPLICA_USER=${DB_REPLICA_USER}
+    networks:
+      service.database.primary.network:
+        aliases:
+          - master
+    command: >
+      postgres
+      -c 'max_connections=${DB_MAX_CONNECTIONS}'
+      -c 'wal_level=replica'
+      -c 'max_wal_senders=10'
+      -c 'max_replication_slots=10'
+      -c 'hba_file=/etc/postgresql/pg_hba.conf'
+      -c "replica.user=${DB_REPLICA_USER}"
+      -c "replica.pass=${DB_REPLICA_PASSWORD}"
+      -c 'shared_preload_libraries=pg_cron'
+      -c "cron.database_name=${DB_NAME}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  database_replica:
+    profiles: [ "api" ]
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: service.database.replica
+    hostname: service.database.replica
+    environment:
+      - REPLICA_MODE=true
+      - PRIMARY_HOST=service.database.primary
+      - PRIMARY_PORT=${DB_PORT}
+      - REPLICA_USER=${DB_REPLICA_USER}
+      - REPLICA_PASSWORD=${DB_REPLICA_PASSWORD}
+      - REPLICA_MAX_CONNECTIONS=${DB_REPLICA_MAX_CONNECTIONS}
+    networks:
+      service.database.primary.network:
+        aliases:
+          - slave
+    depends_on:
+      database_primary:
+        condition: service_healthy
+    volumes:
+      - service.database.replica.data:/var/lib/postgresql/data/:rw
+    command: >
+      bash -eu -c '
+        DATA_DIR=/var/lib/postgresql/data
+        if [ ! -f "$$DATA_DIR/PG_VERSION" ]; then
+          PGPASSWORD="$${DB_REPLICA_PASSWORD:?}" pg_basebackup \
+            -h "$${PRIMARY_HOST:?}" \
+            -p "$${PRIMARY_PORT:-5432}" \
+            -U "$${DB_REPLICA_USER:-replicator}" \
+            -D "$$DATA_DIR" \
+            -R \
+            -P \
+            --wal-method=stream
+        fi
+        exec /usr/local/bin/docker-entrypoint.sh postgres \
+          -c hot_standby=on \
+          -c max_connections="$${DB_REPLICA_MAX_CONNECTIONS:-100}"
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_REPLICA_USER} -d postgres || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  grafana:
+    profiles: [ "grafana" ]
+    image: grafana/grafana:latest
+    container_name: service.grafana
+    hostname: service.grafana
+    restart: unless-stopped
+    expose:
+      - "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - service.grafana.network
+    volumes:
+      - service.grafana.data:/var/lib/grafana:rw
+      - ./metrics/grafana/provisioning:/etc/grafana/provisioning:rw
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - VIRTUAL_HOST=service.grafana
+      - NETWORK_ACCESS=internal
+      - VIRTUAL_PORT=3000
+
+  prometheus:
+    profiles: [ "api", "prometheus" ]
+    image: prom/prometheus:latest
+    container_name: service.prometheus
+    restart: unless-stopped
+    volumes:
+      - ./metrics/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - service.prometheus.data:/prometheus:rw
+    networks:
+      service.grafana.network: null
+      service.prometheus.network:
+        aliases:
+          - prometheus
+    command:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--web.console.libraries=/etc/prometheus/console_libraries'
+        - '--web.console.templates=/etc/prometheus/consoles'
+        - '--web.enable-lifecycle'
+    expose:
+      - "9090"
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  node-exporter:
+    profiles: [ "prometheus" ]
+    image: prom/node-exporter:latest
+    container_name: service.node-exporter
+    restart: unless-stopped
+    expose:
+      - "9100"
+    ports:
+      - "127.0.0.1:9100:9100"
+    networks:
+      - service.prometheus.network
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+  loki:
+    profiles: [ "grafana" ]
+    image: grafana/loki:latest
+    container_name: service.loki
+    hostname: service.loki
+    expose:
+      - "3100"
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./metrics/loki/config.yml:/etc/loki/config.yaml:ro
+      - service.loki.data:/tmp/:rw
+    command: -config.file=/etc/loki/config.yaml
+    restart: unless-stopped
+    networks:
+      - service.grafana.network
+
+  vector:
+    profiles: [ "grafana" ]
+    image: timberio/vector:0.29.1-alpine
+    container_name: service.vector
+    hostname: service.vector
+    restart: unless-stopped
+    expose:
+      - "8383"
+    networks:
+      - service.grafana.network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./metrics/vector/vector.toml:/etc/vector/vector.toml:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+        compress: "true"
+        mode: "non-blocking"
+
+  redis:
+    profiles: [ "api" ]
+    image: redis:latest
+    restart: unless-stopped
+    container_name: service.redis
+    command: redis-server ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    networks:
+      service.redis.network:
+        aliases:
+          - redis
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ${REDIS_PASSWORD:+-a $REDIS_PASSWORD} ping | grep PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 0s
+
+networks:
+  service.database.primary.network:
+    driver: bridge
+    name: database
+    ipam:
+      config:
+        - subnet: 172.26.0.0/16
+  service.grafana.network:
+    driver: bridge
+    name: grafana
+  service.redis.network:
+    driver: bridge
+    name: redis
+  service.prometheus.network:
+    driver: bridge
+    name: prometheus
+
+
+volumes:
+  service.database.primary.data:
+    name: service_postgres_data
+  service.database.replica.data:
+    name: service_postgres_replica_data
+  service.loki.data:
+    name: service_loki_data
+  service.grafana.data:
+    name: service_grafana_data
+  service.prometheus.data:
+    name: service_prometheus_data

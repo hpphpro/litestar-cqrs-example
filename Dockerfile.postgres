@@ -1,0 +1,14 @@
+FROM postgres:17.6-bookworm
+
+RUN set -eux \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && curl -fsSL -o /tmp/pg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && gpg --dearmor -o /usr/share/keyrings/postgresql.gpg /tmp/pg.asc \
+    && rm -f /tmp/pg.asc \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-17-cron \
+    && rm -rf /var/lib/apt/lists/*
