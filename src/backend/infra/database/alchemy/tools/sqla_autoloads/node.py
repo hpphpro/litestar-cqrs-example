@@ -12,13 +12,13 @@ from .datastructures import frozendict
 class Node:
     __instance: ClassVar[Node | None] = None
     _node: Mapping[
-        type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]
+        type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]
     ]
 
     def __new__(
         cls,
         node: Mapping[
-            type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]
+            type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]
         ]
         | None = None,
     ) -> Node:
@@ -36,26 +36,26 @@ class Node:
 
     def get(
         self, model: type[orm.DeclarativeBase]
-    ) -> Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]:
+    ) -> Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]:
         return self.node.get(model, ())
 
     def __getitem__(
         self, model: type[orm.DeclarativeBase]
-    ) -> Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]:
+    ) -> Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]:
         return self.node[model]
 
     @property
     def node(
         self,
     ) -> Mapping[
-        type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]
+        type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]
     ]:
         return self._node
 
     def set_node(
         self,
         node: Mapping[
-            type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]
+            type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]
         ],
     ) -> None:
         self._node = node
@@ -63,9 +63,7 @@ class Node:
 
 def get_node(
     base: type[orm.DeclarativeBase],
-) -> Mapping[
-    type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]
-]:
+) -> Mapping[type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]]:
     assert orm.DeclarativeBase in base.__bases__, "base must be a subclass of orm.DeclarativeBase"
 
     return frozendict({
@@ -75,7 +73,7 @@ def get_node(
 
 def init_node(
     node: Mapping[
-        type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[type[orm.DeclarativeBase]]]
+        type[orm.DeclarativeBase], Sequence[orm.RelationshipProperty[orm.DeclarativeBase]]
     ],
 ) -> None:
     Node(node)
