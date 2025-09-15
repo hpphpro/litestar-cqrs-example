@@ -70,7 +70,7 @@ class AuthController(Controller):
     ) -> Response[dto.Status]:
         token = request.cookies.get("refresh", "")
         if not token and (auth := request.headers.get("Authorization", "")):
-            scheme, sep, token = auth.partition(" ")
+            scheme, _, token = auth.partition(" ")
             if scheme.lower() != "bearer":
                 raise exc.UnAuthorizedError("Invalid token provided")
 
@@ -104,7 +104,7 @@ class AuthController(Controller):
     ) -> Response[JwtToken]:
         token = request.cookies.get("refresh", "")
         if not token and (auth := request.headers.get("Authorization", "")):
-            scheme, sep, token = auth.partition(" ")
+            scheme, _, token = auth.partition(" ")
             if scheme.lower() != "bearer":
                 raise exc.UnAuthorizedError("Invalid token provided")
 

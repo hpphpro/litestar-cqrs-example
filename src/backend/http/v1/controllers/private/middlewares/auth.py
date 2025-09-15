@@ -42,7 +42,7 @@ class JWTAuthMiddleware(ASGIMiddleware):
         if not auth_header:
             raise exc.UnAuthorizedError("Token is missing")
 
-        scheme, sep, encoded_token = auth_header.partition(" ")
+        scheme, _, encoded_token = auth_header.partition(" ")
         if scheme.lower() != "bearer":
             raise exc.UnAuthorizedError("Invalid token provided")
 
