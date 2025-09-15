@@ -71,10 +71,9 @@ The `database_backup` service periodically runs `pg_dump` and stores files in `$
 - **SERVER_**:
   - `SERVER_HOST` (default `127.0.0.1`)
   - `SERVER_PORT` (default `9393`)
-  - `SERVER_TIMEOUT` (keep-alive, default `60`)
   - `SERVER_TYPE` — `granian` | `uvicorn` | `gunicorn` (default `granian`)
   - `SERVER_WORKERS` — number or `auto`
-  - `SERVER_THREADS`, `SERVER_LOG`, `SERVER_MAX_REQUESTS`
+  - `SERVER_LOG`
 
 - **APP_**:
   - `APP_ROOT_PATH` (default `/api`)
