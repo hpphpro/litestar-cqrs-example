@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict
 from typing import Final, Literal
 
 from argon2 import Parameters, PasswordHasher
@@ -38,11 +37,11 @@ class Argon2:
 
     @classmethod
     def from_profile(cls, profile: ProfileType) -> Argon2:
-        return cls(PasswordHasher(**asdict(PROFILES[profile])))
+        return cls(PasswordHasher.from_parameters(PROFILES[profile]))
 
     @classmethod
     def from_parameters(cls, parameters: Parameters) -> Argon2:
-        return cls(PasswordHasher(**asdict(parameters)))
+        return cls(PasswordHasher.from_parameters(parameters))
 
     @as_result(is_async=False)
     def hash_password(self, plain: str) -> str:
