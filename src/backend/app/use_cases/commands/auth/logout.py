@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -9,6 +8,7 @@ from backend.app.contracts.auth import (
     JwtToken,
     RefreshStore,
 )
+from backend.app.use_cases.transform import handler
 
 
 class LogoutUserCommand(dto.BaseDTO):
@@ -16,7 +16,7 @@ class LogoutUserCommand(dto.BaseDTO):
     token: JwtToken
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class LogoutUserCommandHandler(Handler[Context, LogoutUserCommand, dto.Status]):
     refresh_store: RefreshStore
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -11,6 +10,7 @@ from backend.app.contracts.auth import (
     RefreshStore,
     TokenPair,
 )
+from backend.app.use_cases.transform import handler
 
 
 class RefreshUserCommand(dto.BaseDTO):
@@ -18,7 +18,7 @@ class RefreshUserCommand(dto.BaseDTO):
     token: JwtToken
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class RefreshUserCommandHandler(Handler[Context, RefreshUserCommand, TokenPair]):
     refresh_store: RefreshStore
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -8,13 +7,14 @@ from backend.app.contracts.auth import Context
 from backend.app.contracts.gateway import RepositoryGateway
 from backend.app.contracts.pagination import OffsetPagination
 from backend.app.contracts.types.user import FilterManyUser, FilterOneUser
+from backend.app.use_cases.transform import handler
 
 
 class GetOneUserQuery(dto.BaseDTO):
     filters: FilterOneUser
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetOneUserQueryHandler(Handler[Context, GetOneUserQuery, dto.user.UserPublic]):
     gateway: RepositoryGateway
 
@@ -33,7 +33,7 @@ class GetManyOffsetUserQuery(dto.BaseDTO):
     filters: FilterManyUser
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetManyOffsetUserQueryHandler(
     Handler[Context, GetManyOffsetUserQuery, dto.OffsetResult[dto.user.UserPublic]],
 ):

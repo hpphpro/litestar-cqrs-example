@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -14,13 +13,14 @@ from backend.app.contracts.auth import (
 )
 from backend.app.contracts.cache import StrCache
 from backend.app.contracts.gateway import RepositoryGateway
+from backend.app.use_cases.transform import handler
 
 
 class LoginUserCommand(dto.BaseDTO):
     data: dto.user.LoginUser
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class LoginUserCommandHandler(Handler[Context, LoginUserCommand, TokenPair]):
     gateway: RepositoryGateway
     authenticator: Authenticator

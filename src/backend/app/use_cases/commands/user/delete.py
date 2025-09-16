@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -7,13 +6,14 @@ from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import Context
 from backend.app.contracts.gateway import RepositoryGateway
 from backend.app.contracts.types.user import FilterOneUser
+from backend.app.use_cases.transform import handler
 
 
 class DeleteUserCommand(dto.BaseDTO):
     filters: FilterOneUser
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class DeleteUserCommandHandler(Handler[Context, DeleteUserCommand, None]):
     gateway: RepositoryGateway
 

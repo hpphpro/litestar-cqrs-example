@@ -3,9 +3,9 @@ from typing import Final
 
 from litestar import Litestar
 
-from backend.app.server import serve
 from backend.http import init_app
 from backend.http.v1 import init_v1_router
+from backend.infra.server import serve
 from config.core import BackendConfig, load_config
 
 

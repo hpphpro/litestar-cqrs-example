@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -8,6 +7,7 @@ from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import Context
 from backend.app.contracts.gateway import RepositoryGateway
 from backend.app.contracts.types import rbac
+from backend.app.use_cases.transform import handler
 
 
 class UpdateRoleCommand(dto.BaseDTO):
@@ -15,7 +15,7 @@ class UpdateRoleCommand(dto.BaseDTO):
     data: rbac.UpdateRoleData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class UpdateRoleCommandHandler(Handler[Context, UpdateRoleCommand, dto.Status]):
     gateway: RepositoryGateway
 
@@ -32,7 +32,7 @@ class UpdatePermissionFieldCommand(dto.BaseDTO):
     data: rbac.UpdateRolePermissionFieldData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class UpdatePermissionFieldCommandHandler(
     Handler[Context, UpdatePermissionFieldCommand, dto.Status]
 ):

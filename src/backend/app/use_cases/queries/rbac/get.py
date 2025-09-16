@@ -1,6 +1,5 @@
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -9,13 +8,14 @@ from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import Context
 from backend.app.contracts.auth import Permission as AuthPermission
 from backend.app.contracts.gateway import RepositoryGateway
+from backend.app.use_cases.transform import handler
 
 
 class GetUserPermissionsQuery(dto.BaseDTO):
     user_id: uuid.UUID
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetUserPermissionsQueryHandler(
     Handler[Context, GetUserPermissionsQuery, Sequence[AuthPermission]]
 ):
@@ -35,7 +35,7 @@ class GetAllPermissionsQuery(dto.BaseDTO):
     pass
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetPermissionsQueryHandler(
     Handler[Context, GetAllPermissionsQuery, Sequence[dto.rbac.Permission]]
 ):
@@ -55,7 +55,7 @@ class GetUserRolesQuery(dto.BaseDTO):
     user_id: uuid.UUID
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetUserRolesQueryHandler(Handler[Context, GetUserRolesQuery, Sequence[dto.rbac.Role]]):
     gateway: RepositoryGateway
 
@@ -71,7 +71,7 @@ class GetRoleUsersQuery(dto.BaseDTO):
     role_id: uuid.UUID
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetRoleUsersQueryHandler(Handler[Context, GetRoleUsersQuery, Sequence[dto.user.UserPrivate]]):
     gateway: RepositoryGateway
 
@@ -89,7 +89,7 @@ class GetAllRolesQuery(dto.BaseDTO):
     pass
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GetAllRolesQueryHandler(Handler[Context, GetAllRolesQuery, Sequence[dto.rbac.Role]]):
     gateway: RepositoryGateway
 

@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -8,13 +7,14 @@ from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import Context, Hasher
 from backend.app.contracts.gateway import RepositoryGateway
 from backend.app.contracts.types.user import CreateUserData
+from backend.app.use_cases.transform import handler
 
 
 class CreateUserCommand(dto.BaseDTO):
     data: CreateUserData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class CreateUserCommandHandler(Handler[Context, CreateUserCommand, dto.Id[uuid.UUID]]):
     gateway: RepositoryGateway
     hasher: Hasher

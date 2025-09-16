@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -8,13 +7,14 @@ from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import Context
 from backend.app.contracts.gateway import RepositoryGateway
 from backend.app.contracts.types import rbac
+from backend.app.use_cases.transform import handler
 
 
 class CreateRoleCommand(dto.BaseDTO):
     data: rbac.CreateRoleData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class CreateRoleCommandHandler(Handler[Context, CreateRoleCommand, dto.Id[uuid.UUID]]):
     gateway: RepositoryGateway
 
@@ -32,7 +32,7 @@ class GrantRolePermissionCommand(dto.BaseDTO):
     data: rbac.GrantRolePermissionData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GrantRolePermissionCommandHandler(Handler[Context, GrantRolePermissionCommand, dto.Status]):
     gateway: RepositoryGateway
 
@@ -48,7 +48,7 @@ class SetRoleCommand(dto.BaseDTO):
     data: rbac.RoleUserData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class SetRoleCommandHandler(Handler[Context, SetRoleCommand, dto.Status]):
     gateway: RepositoryGateway
 
@@ -64,7 +64,7 @@ class GrantPermissionCommand(dto.BaseDTO):
     data: rbac.GrantRolePermissionData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GrantPermissionCommandHandler(Handler[Context, GrantPermissionCommand, dto.Status]):
     gateway: RepositoryGateway
 
@@ -80,7 +80,7 @@ class GrantPermissionFieldCommand(dto.BaseDTO):
     data: rbac.GrantRolePermissionFieldData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class GrantPermissionFieldCommandHandler(Handler[Context, GrantPermissionFieldCommand, dto.Status]):
     gateway: RepositoryGateway
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import override
 
 from backend.app import dto
@@ -7,13 +6,14 @@ from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import Context
 from backend.app.contracts.gateway import RepositoryGateway
 from backend.app.contracts.types import rbac
+from backend.app.use_cases.transform import handler
 
 
 class UnsetRoleCommand(dto.BaseDTO):
     data: rbac.RoleUserData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class UnsetRoleCommandHandler(Handler[Context, UnsetRoleCommand, None]):
     gateway: RepositoryGateway
 
@@ -29,7 +29,7 @@ class RevokePermissionCommand(dto.BaseDTO):
     data: rbac.RevokeRolePermissionData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class RevokePermissionCommandHandler(Handler[Context, RevokePermissionCommand, None]):
     gateway: RepositoryGateway
 
@@ -45,7 +45,7 @@ class RevokePermissionFieldCommand(dto.BaseDTO):
     data: rbac.RevokeRolePermissionFieldData
 
 
-@dataclass(frozen=True, slots=True)
+@handler
 class RevokePermissionFieldCommandHandler(Handler[Context, RevokePermissionFieldCommand, None]):
     gateway: RepositoryGateway
 
