@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol, overload, runtime_checkable
 
+from backend.app.contracts import exceptions as exc
 from backend.app.contracts.manager import TransactionManager
 
 from .result import AppResult
@@ -186,9 +187,17 @@ class TokenClaims:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class JwtToken:
     token: str
+
+    def __post_init__(self) -> None:
+        splitted = self.token.split()
+        if len(splitted) >= 2:  # noqa: PLR2004
+            if splitted[0].lower() != "bearer":
+                raise exc.UnAuthorizedError("Invalid token provided")
+
+            self.token = splitted[1]
 
     def __str__(self) -> str:
         return self.token

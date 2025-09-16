@@ -7,9 +7,23 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import (
     Any,
+    Final,
 )
 
 import msgspec
+
+
+DEFAULT_CONVERT_TO_TYPES: Final[tuple[type, ...]] = (
+    bytes,
+    bytearray,
+    datetime,
+    time,
+    date,
+    timedelta,
+    uuid.UUID,
+    Decimal,
+)
+DEFAULT_CONVERT_FROM_TYPES: Final[tuple[type, ...]] = (*DEFAULT_CONVERT_TO_TYPES, memoryview)
 
 
 def convert_to[T](cls: type[T], value: Any, **kw: Any) -> T:
@@ -17,26 +31,14 @@ def convert_to[T](cls: type[T], value: Any, **kw: Any) -> T:
         value,
         cls,
         dec_hook=kw.pop("dec_hook", None),
-        builtin_types=(bytes, bytearray, datetime, time, date, timedelta, uuid.UUID, Decimal),
+        builtin_types=kw.pop("builtin_types", DEFAULT_CONVERT_TO_TYPES),
         **kw,
     )
 
 
 def convert_from(value: Any, **kw: Any) -> Any:
     return msgspec.to_builtins(
-        value,
-        builtin_types=(
-            datetime,
-            date,
-            timedelta,
-            Decimal,
-            uuid.UUID,
-            bytes,
-            bytearray,
-            memoryview,
-            time,
-        ),
-        **kw,
+        value, builtin_types=kw.pop("builtin_types", DEFAULT_CONVERT_FROM_TYPES), **kw
     )
 
 

@@ -6,7 +6,6 @@ from litestar.middleware.rate_limit import RateLimitConfig
 from litestar.params import Body
 
 from backend.app import dto
-from backend.app.contracts import exceptions as exc
 from backend.app.contracts.auth import JwtToken
 from backend.app.use_cases import commands
 from backend.http.common import docs
@@ -68,11 +67,7 @@ class AuthController(Controller):
         command_bus: commands.CommandBus,
         request: Request[None, None, State],
     ) -> Response[dto.Status]:
-        token = request.cookies.get("refresh", "")
-        if not token and (auth := request.headers.get("Authorization", "")):
-            scheme, _, token = auth.partition(" ")
-            if scheme.lower() != "bearer":
-                raise exc.UnAuthorizedError("Invalid token provided")
+        token = request.cookies.get("refresh", "") or request.headers.get("Authorization", "")
 
         result = await command_bus.send_unwrapped(
             request.state.ctx,
@@ -102,11 +97,7 @@ class AuthController(Controller):
         command_bus: commands.CommandBus,
         request: Request[None, None, State],
     ) -> Response[JwtToken]:
-        token = request.cookies.get("refresh", "")
-        if not token and (auth := request.headers.get("Authorization", "")):
-            scheme, _, token = auth.partition(" ")
-            if scheme.lower() != "bearer":
-                raise exc.UnAuthorizedError("Invalid token provided")
+        token = request.cookies.get("refresh", "") or request.headers.get("Authorization", "")
 
         result = await command_bus.send_unwrapped(
             request.state.ctx,
