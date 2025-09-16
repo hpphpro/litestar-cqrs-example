@@ -72,17 +72,21 @@ class GetRoleUsersQuery(dto.BaseDTO):
 
 
 @handler
-class GetRoleUsersQueryHandler(Handler[Context, GetRoleUsersQuery, Sequence[dto.user.UserPrivate]]):
+class GetRoleUsersQueryHandler(Handler[Context, GetRoleUsersQuery, Sequence[dto.user.UserPublic]]):
     gateway: RepositoryGateway
 
     @override
     async def __call__(
         self, ctx: Context, qc: GetRoleUsersQuery, /
-    ) -> Sequence[dto.user.UserPrivate]:
+    ) -> Sequence[dto.user.UserPublic]:
         async with self.gateway.manager:
             result = await self.gateway.rbac.get_role_users(qc.role_id)
 
-        return result.map_err(exc.ServiceNotImplementedError.from_other).unwrap()
+        return (
+            result.map(lambda res: [dto.user.UserPublic.from_attributes(r) for r in res])
+            .map_err(exc.ServiceNotImplementedError.from_other)
+            .unwrap()
+        )
 
 
 class GetAllRolesQuery(dto.BaseDTO):

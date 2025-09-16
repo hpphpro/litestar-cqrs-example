@@ -177,7 +177,7 @@ class RbacController(Controller):
         role_id: uuid.UUID,
         query_bus: queries.QueryBus,
         request: Request[AuthUser, TokenClaims, State],
-    ) -> Sequence[dto.user.UserPrivate]:
+    ) -> Sequence[dto.user.UserPublic]:
         return await query_bus(
             request.state.ctx,
             queries.rbac.get.GetRoleUsersQuery(role_id=role_id),
