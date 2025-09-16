@@ -197,7 +197,7 @@ class JwtToken:
             if splitted[0].lower() != "bearer":
                 raise exc.UnAuthorizedError("Invalid token provided")
 
-            self.token = splitted[1]
+            self.token = "".join(splitted[1:])
 
     def __str__(self) -> str:
         return self.token
