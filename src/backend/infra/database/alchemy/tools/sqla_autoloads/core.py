@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Final, Required, TypedDict, Unpack
+from functools import lru_cache, reduce
+from typing import TYPE_CHECKING, Any, Final, Literal, Required, TypedDict, Unpack
 
 import sqlalchemy as sa
 from sqlalchemy import orm
+from sqlalchemy.dialects import mssql, mysql, oracle, postgresql, sqlite
 from sqlalchemy.orm.util import LoaderCriteriaOption
 from sqlalchemy.sql.selectable import LateralFromClause
 
@@ -34,7 +35,8 @@ class _LoadSelfParams[T: orm.DeclarativeBase]:
 
     @classmethod
     def from_relation_params(cls, params: _LoadRelationParams[T]) -> _LoadSelfParams[T]:
-        assert params.self_key, "`self_key` should be set for self join"
+        if not params.self_key:
+            raise ValueError("`self_key` should be set for self join")
 
         return cls(
             model=params.model,
@@ -137,6 +139,19 @@ def _bfs_search[T: orm.DeclarativeBase](
     end: str,
     node: Node,
 ) -> Sequence[orm.RelationshipProperty[T]]:
+    """Perform breadth-first search to find relationship path.
+
+    Searches for a path of relationships from a starting model to a target
+    relationship key using breadth-first traversal of the relationship graph.
+
+    Args:
+        start: Starting SQLAlchemy model class.
+        end: Target relationship key to find.
+        node: Node instance containing relationship mappings.
+
+    Returns:
+        Sequence of relationship properties forming the path to the target.
+    """
     queue: deque[Any] = deque([[start]])
     seen = set()
 
@@ -178,7 +193,22 @@ def _construct_strategy[T: orm.DeclarativeBase](
 def _load_self[T: orm.DeclarativeBase](
     query: sa.Select[tuple[T]],
     params: _LoadSelfParams[T],
+    *,
+    side: Literal["many", "one"],
 ) -> tuple[sa.Select[tuple[T]], _AbstractLoad]:
+    """Handle loading for self-referential relationships.
+
+    Special handling for relationships where a model references itself,
+    creating appropriate aliases and joins to avoid conflicts.
+
+    Args:
+        query: SQLAlchemy select query to modify.
+        params: Parameters for the self-referential relationship.
+        side: Whether this is a "many" or "one" side of the relationship.
+
+    Returns:
+        Tuple of modified query and the load strategy.
+    """
     (
         load,
         relationship,
@@ -202,25 +232,41 @@ def _load_self[T: orm.DeclarativeBase](
     alias: LateralFromClause | type[T]
 
     alias = orm.aliased(relation_cls, name=name)
+    alias_name = f"{name}."
+    replace_with = [
+        (original_name, alias_name)
+        for original_name in _get_possible_quoted_names_for_replacement(model)
+    ]
 
-    if limit:
-        subq = _apply_conditions(
-            _apply_order_by(
-                sa.select(alias)
-                .limit(limit)
-                .where(get_primary_key(model) == getattr(alias, self_key)),
-                relation_cls,
-                order_by,
-            ),
-            relationship.key,
-            conditions,
-        )
-        lateral = subq.lateral(name=name)
-        query = query.outerjoin(lateral, sa.true())
-        alias = lateral
+    if side == "many":
+        if limit:
+            subq = _apply_conditions(
+                _apply_order_by(
+                    sa.select(alias).limit(limit),
+                    relation_cls,
+                    order_by,
+                ),
+                relationship.key,
+                conditions,
+                replace_with,
+            ).where(get_primary_key(model) == getattr(alias, self_key))
+
+            lateral = subq.lateral(name=name)
+            query = query.outerjoin(lateral, sa.true())
+            alias = lateral
+        else:
+            query = _apply_conditions(
+                query.outerjoin(alias, get_primary_key(model) == getattr(alias, self_key)),
+                relationship.key,
+                conditions,
+                replace_with,
+            )
     else:
         query = _apply_conditions(
-            query.outerjoin(alias, getattr(alias, self_key) == get_primary_key(model)),
+            query.outerjoin(
+                alias,
+                getattr(model, self_key) == getattr(alias, get_primary_key(model).name),
+            ),
             relationship.key,
             conditions,
         )
@@ -230,12 +276,54 @@ def _load_self[T: orm.DeclarativeBase](
     return query, load
 
 
+@lru_cache(maxsize=128)
+def _get_possible_quoted_names_for_replacement[T: orm.DeclarativeBase](
+    model: type[T],
+) -> Iterable[str]:
+    name = get_table_name(model)
+
+    return {
+        f"{name}.",
+        *[
+            f"{d.dialect().identifier_preparer.quote(name)}."
+            for d in [postgresql, mysql, sqlite, mssql, oracle]
+        ],
+    }
+
+
+def _replace(string: str, replace_with: tuple[str, str]) -> str:
+    return string.replace(*replace_with)
+
+
 def _apply_conditions[T: orm.DeclarativeBase](
     query: sa.Select[tuple[T]],
     key: str,
     conditions: Mapping[str, Callable[[sa.Select[tuple[T]]], sa.Select[tuple[T]]]],
+    replace_with: Iterable[tuple[str, str]] | None = None,
 ) -> sa.Select[tuple[T]]:
-    return condition(query) if conditions and (condition := conditions.get(key)) else query
+    """
+    Apply a per-relationship condition transformer to `query`.
+
+    The transformer receives a `Select[Related]`, may mutate ordering/where,
+    and must return a `Select[Related]`. If `replace_with` is provided, the
+    resulting WHERE clause is inlined as raw SQL via `sa.text(...)` after
+    rewriting table-name prefixes (e.g., to point to a self-join alias).
+
+    Notes:
+        • We reset private `_where_criteria` before re-applying rewritten WHERE.
+            This relies on SQLAlchemy internals; verify against SQLAlchemy upgrades.
+        • `replace_with` is intended for self-joins where related tables are aliased.
+            Provide pairs like `("user.", "user_parent.")`.
+
+    Returns:
+        A modified `Select` with conditions applied.
+    """
+    q = condition(query) if conditions and (condition := conditions.get(key)) else query
+    if replace_with and (clause := q.whereclause) is not None:
+        q._where_criteria = ()  # noqa: SLF001
+        q = q.where(sa.text(reduce(_replace, replace_with, str(clause))))
+
+    return q
 
 
 def _apply_order_by[T: orm.DeclarativeBase](
@@ -255,6 +343,19 @@ def _load_relationship[T: orm.DeclarativeBase](
     query: sa.Select[tuple[T]],
     params: _LoadRelationParams[T],
 ) -> tuple[sa.Select[tuple[T]], _AbstractLoad]:
+    """Load a single relationship with appropriate strategy.
+
+    Determines the best loading strategy for a relationship based on its
+    characteristics (one-to-many, many-to-one, self-referential, etc.) and
+    applies the necessary joins and load options.
+
+    Args:
+        query: SQLAlchemy select query to modify.
+        params: Parameters for loading the relationship.
+
+    Returns:
+        Tuple of modified query and the load strategy.
+    """
     (
         load,
         relationship,
@@ -277,10 +378,11 @@ def _load_relationship[T: orm.DeclarativeBase](
         params.check_tables,
     )
     if relation_cls is model:
-        if relationship.uselist:
-            return _load_self(query, _LoadSelfParams.from_relation_params(params))
-        else:
-            return _load_self(query, _LoadSelfParams.from_relation_params(params))
+        return _load_self(
+            query,
+            _LoadSelfParams.from_relation_params(params),
+            side="many" if relationship.uselist else "one",
+        )
 
     if relationship.uselist:
         if limit is None:
@@ -293,10 +395,20 @@ def _load_relationship[T: orm.DeclarativeBase](
             )
 
             if relationship.secondary is not None and relationship.secondaryjoin is not None:
-                subq = subq.where(sa.text(str(relationship.secondaryjoin)))
-                query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
+                compiled = str(
+                    relationship.secondaryjoin.compile(compile_kwargs={"literal_binds": True})
+                )
+                subq = subq.where(sa.text(compiled))
+                if check_tables:
+                    if relationship.secondary.description not in get_table_names(query):
+                        query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
+                else:
+                    query = query.outerjoin(relationship.secondary, relationship.primaryjoin)
             else:
-                subq = subq.where(sa.text(str(relationship.primaryjoin)))
+                compiled = str(
+                    relationship.primaryjoin.compile(compile_kwargs={"literal_binds": True})
+                )
+                subq = subq.where(sa.text(compiled))
 
             lateral_name = (
                 f"{get_table_name(relation_cls)}_{relationship.key}"
@@ -329,6 +441,20 @@ def _construct_loads[T: orm.DeclarativeBase](
     relationships: Sequence[orm.RelationshipProperty[T]],
     params: _ConstructLoadsParams[T],
 ) -> tuple[sa.Select[tuple[T]], list[_AbstractLoad | LoaderCriteriaOption] | None]:
+    """Construct loading strategies for a sequence of relationships.
+
+    Processes a sequence of relationships and builds the appropriate loading
+    strategies (eager loading, selectin loading, etc.) while avoiding duplicates.
+
+    Args:
+        query: Base SQLAlchemy select query.
+        excludes: Set of already processed models and relationship keys.
+        relationships: Sequence of relationships to process.
+        params: Parameters for constructing loads.
+
+    Returns:
+        Tuple of modified query and list of load options, or None if no options.
+    """
     if not relationships:
         return query, None
 
@@ -372,14 +498,25 @@ def _construct_loads[T: orm.DeclarativeBase](
 def _select_with_relationships[T: orm.DeclarativeBase](
     params: _LoadParams[T],
 ) -> sa.Select[tuple[T]]:
+    """Build a select query with relationship loading based on load parameters.
+
+    This is the core function that processes load parameters and constructs
+    the appropriate SQLAlchemy query with joins and loading strategies.
+
+    Args:
+        params: Load parameters containing model, relationships, and options.
+
+    Returns:
+        Configured SQLAlchemy Select statement.
+    """
     loads, model, query, node = (
         list(params.loads),
         params.model,
         params.query,
         params.node,
     )
-    assert orm.DeclarativeBase not in model.__bases__, "model must not be orm.DeclarativeBase"
-    assert model is not orm.DeclarativeBase, "model must not be orm.DeclarativeBase"
+    if orm.DeclarativeBase in model.__bases__ or model is orm.DeclarativeBase:
+        raise TypeError("model must not be orm.DeclarativeBase")
 
     if query is None:
         query = sa.select(model)
@@ -402,10 +539,88 @@ def _select_with_relationships[T: orm.DeclarativeBase](
     return query.distinct() if params.distinct else query
 
 
-def select_with_relationships[T: orm.DeclarativeBase](
+def _find_self_key[T: orm.DeclarativeBase](
+    model: type[T],
+) -> str:
+    """Find the foreign key column for self-referential relationships.
+
+    Looks for a foreign key in the model that references the model's own
+    primary key, which indicates a self-referential relationship.
+
+    Args:
+        model: SQLAlchemy model class to examine.
+
+    Returns:
+        Name of the self-referential foreign key column, or empty string if none found.
+    """
+    return next(
+        (
+            fk.parent.name
+            for fk in model.__table__.foreign_keys
+            if get_primary_key(model).name == fk.column.name
+        ),
+        "",
+    )
+
+
+def sqla_select[T: orm.DeclarativeBase](
     **params: Unpack[_LoadParamsType[T]],
 ) -> sa.Select[tuple[T]]:
+    """Create a SQLAlchemy select statement with automatic relationship loading.
+
+    This is the main function for building select queries with eager loading of relationships.
+    It automatically constructs the necessary joins and load strategies based on the specified
+    relationship paths.
+
+    Args:
+        model: type[T]
+            The SQLAlchemy model class to select from.
+        loads: tuple[str, ...]
+            Tuple of relationship.key paths to load.
+            Defaults to () (no relationships).
+        node: Node
+            Node instance containing relationship mappings.
+            Defaults to None (uses singleton).
+        check_tables: bool
+            Whether to check for existing tables in query to avoid duplicate joins.
+            Defaults to False.
+        conditions: Mapping[str, Callable[[sa.Select[tuple[T]]], sa.Select[tuple[T]]]] | None
+            Mapping of relationship keys to condition functions for filtering.
+            Defaults to None.
+        self_key: str
+            Foreign key column name for self-referential relationships.
+            Defaults to None (auto-detected).
+        order_by: tuple[str, ...]
+            Tuple of column names for ordering relationship results.
+            Defaults to None (uses primary key).
+        query: sa.Select[tuple[T]]
+            Existing select query to extend.
+            Defaults to None (creates new query).
+        distinct: bool
+            Whether to apply DISTINCT to the query. For edge cases, use .unique() instead.
+            Defaults to False.
+        limit: int | None
+            Maximum number of related records to load per relationship. Defaults to 50.
+
+    Returns:
+        A SQLAlchemy Select statement with configured eager loading.
+
+    Example:
+        >>> query = sqla_select(
+        ...     model=User,
+        ...     loads=("roles", "profile"),
+        ...     conditions={
+        ...         "roles": add_conditions(Role.active == True),
+        ...         "profile": lambda q: q.order_by(None).order_by(
+        ...             Profile.name.asc()
+        ...         ),
+        ...     },
+        ...     limit=10,
+        ... )
+    """
     if conditions := params.get("conditions"):
         params["conditions"] = frozendict(conditions)
+    if "self_key" not in params:
+        params["self_key"] = _find_self_key(params["model"])
 
     return _select_with_relationships(_LoadParams[T](**params))

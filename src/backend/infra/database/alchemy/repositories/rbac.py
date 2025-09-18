@@ -55,10 +55,10 @@ class RbacRepositoryImpl(UnboundRepository):
         return [dto.rbac.Role.from_attributes(item) for item in result]
 
     @as_result()
-    async def get_role_users(self, role_id: uuid.UUID) -> Sequence[dto.user.UserPrivate]:
+    async def get_role_users(self, role_id: uuid.UUID) -> Sequence[dto.user.UserPublic]:
         result = await self.manager.send(queries.rbac.GetRoleUsers(role_id))
 
-        return [dto.user.UserPrivate.from_attributes(item) for item in result]
+        return [dto.user.UserPublic.from_attributes(item) for item in result]
 
     @as_result()
     async def get_permissions(self) -> Sequence[dto.rbac.Permission]:

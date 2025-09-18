@@ -23,9 +23,7 @@ class GetOneUserQueryHandler(Handler[Context, GetOneUserQuery, dto.user.UserPubl
         async with self.gateway.manager:
             result = await self.gateway.user.get_one(**qc.filters)
 
-        return result.map(dto.user.UserPublic.from_attributes).unwrap_or_raise(
-            exc.NotFoundError("User not found"),
-        )
+        return result.unwrap_or_raise(exc.NotFoundError("User not found"))
 
 
 class GetManyOffsetUserQuery(dto.BaseDTO):
@@ -48,8 +46,7 @@ class GetManyOffsetUserQueryHandler(
     ) -> dto.OffsetResult[dto.user.UserPublic]:
         async with self.gateway.manager:
             result = await self.gateway.user.get_many_by_offset(
-                **qc.pagination.as_dict(),
-                **qc.filters,
+                **qc.pagination.as_dict(), **qc.filters
             )
 
         return result.map(

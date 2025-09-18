@@ -1,4 +1,4 @@
-from .core import select_with_relationships
+from .core import sqla_select
 from .datastructures import frozendict
 from .node import Node, get_node, init_node
 from .tools import add_conditions, get_primary_key, get_table_name, get_table_names
@@ -13,5 +13,5 @@ __all__ = (
     "get_table_name",
     "get_table_names",
     "init_node",
-    "select_with_relationships",
+    "sqla_select",
 )

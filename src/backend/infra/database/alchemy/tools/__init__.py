@@ -6,7 +6,7 @@ from .sqla_autoloads import (
     get_table_name,
     get_table_names,
     init_node,
-    select_with_relationships,
+    sqla_select,
 )
 
 
@@ -20,5 +20,5 @@ __all__ = (
     "get_table_name",
     "get_table_names",
     "init_node",
-    "select_with_relationships",
+    "sqla_select",
 )

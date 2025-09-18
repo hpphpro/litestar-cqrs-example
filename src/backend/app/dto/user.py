@@ -11,17 +11,6 @@ from . import rbac
 from .base import ExcludeDefaultsDTO
 
 
-class UserPrivate(ExcludeDefaultsDTO):
-    id: uuid.UUID
-    email: str
-    password: str
-    created_at: datetime
-    updated_at: datetime
-
-    # relation
-    roles: list[rbac.Role] = field(default_factory=list)
-
-
 class UserPublic(ExcludeDefaultsDTO):
     id: uuid.UUID
     email: str

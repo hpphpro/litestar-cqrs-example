@@ -27,14 +27,44 @@ def _get_table_name[T: orm.DeclarativeBase](model: type[T]) -> str:
 
 
 def get_table_name[T: orm.DeclarativeBase](model: type[T]) -> str:
+    """Get the table name for a SQLAlchemy model.
+
+    Args:
+        model: SQLAlchemy model class.
+
+    Returns:
+        The table name as a string.
+
+    Raises:
+        ValueError: If the table name cannot be determined.
+    """
     return _get_table_name(model)
 
 
 def get_primary_key[T: orm.DeclarativeBase](model: type[T]) -> sa.ColumnElement[Any]:
+    """Get the primary key column for a SQLAlchemy model.
+
+    Args:
+        model: SQLAlchemy model class.
+
+    Returns:
+        The primary key column element.
+    """
     return _get_primary_key(model)
 
 
 def get_table_names[T: orm.DeclarativeBase](query: sa.Select[tuple[T]]) -> Sequence[str]:
+    """Extract all table names from a SQLAlchemy select query.
+
+    This function traverses the query's FROM clause to identify all tables,
+    including those in joins and aliases.
+
+    Args:
+        query: SQLAlchemy select query.
+
+    Returns:
+        Sequence of table names found in the query.
+    """
     seen = set()
     out: list[str] = []
 
@@ -70,6 +100,25 @@ def get_table_names[T: orm.DeclarativeBase](query: sa.Select[tuple[T]]) -> Seque
 def add_conditions[T: orm.DeclarativeBase](
     *conditions: sa.ColumnExpressionArgument[bool],
 ) -> Callable[[sa.Select[tuple[T]]], sa.Select[tuple[T]]]:
+    """Create a function that adds WHERE conditions to a select query.
+
+    This is a helper function for creating condition functions that can be used
+    with the sqla_select function's conditions parameter.
+
+    Args:
+        *conditions: SQLAlchemy column expressions that evaluate to boolean.
+
+    Returns:
+        A function that takes a select query and returns it with added conditions.
+
+    Example:
+        >>> condition_func = add_conditions(Role.active == True, Role.level > 3)
+        >>> # Use with sqla_select:
+        >>> query = sqla_select(
+        ...     model=User, loads=("roles",), conditions={"roles": condition_func}
+        ... )
+    """
+
     def _add(query: sa.Select[tuple[T]]) -> sa.Select[tuple[T]]:
         return query.where(*conditions)
 

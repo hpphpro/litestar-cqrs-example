@@ -82,11 +82,7 @@ class GetRoleUsersQueryHandler(Handler[Context, GetRoleUsersQuery, Sequence[dto.
         async with self.gateway.manager:
             result = await self.gateway.rbac.get_role_users(qc.role_id)
 
-        return (
-            result.map(lambda res: [dto.user.UserPublic.from_attributes(r) for r in res])
-            .map_err(exc.ServiceNotImplementedError.from_other)
-            .unwrap()
-        )
+        return result.map_err(exc.ServiceNotImplementedError.from_other).unwrap()
 
 
 class GetAllRolesQuery(dto.BaseDTO):

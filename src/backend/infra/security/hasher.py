@@ -37,7 +37,7 @@ class Argon2:
 
     @classmethod
     def from_profile(cls, profile: ProfileType) -> Argon2:
-        return cls(PasswordHasher.from_parameters(PROFILES[profile]))
+        return cls.from_parameters(PROFILES[profile])
 
     @classmethod
     def from_parameters(cls, parameters: Parameters) -> Argon2:

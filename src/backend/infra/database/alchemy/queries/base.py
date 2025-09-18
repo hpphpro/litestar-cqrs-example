@@ -25,7 +25,7 @@ from backend.infra.database.alchemy.tools import (
     get_entity_from_generic,
     get_primary_key,
     get_table_name,
-    select_with_relationships,
+    sqla_select,
 )
 from backend.shared.types import JsonDumps, JsonLoads, is_typevar
 
@@ -166,9 +166,7 @@ class GetOne[E: Entity](ExtendedQueryWithFilters[E, E | None]):
 
     @override
     async def __call__(self, conn: AsyncSession, /, **kw: Any) -> E | None:
-        stmt = select_with_relationships(model=self.entity, loads=self._loads, **kw).where(
-            *self.clauses
-        )
+        stmt = sqla_select(model=self.entity, loads=self._loads, **kw).where(*self.clauses)
         if self.for_update is not None:
             stmt = stmt.with_for_update(**({"of": self.entity} | self.for_update))
 
@@ -186,9 +184,7 @@ class GetAll[E: Entity](ExtendedQueryWithFilters[E, Sequence[E]]):
 
     @override
     async def __call__(self, conn: AsyncSession, /, **kw: Any) -> Sequence[E]:
-        stmt = select_with_relationships(model=self.entity, loads=self._loads, **kw).where(
-            *self.clauses
-        )
+        stmt = sqla_select(model=self.entity, loads=self._loads, **kw).where(*self.clauses)
 
         return (await conn.scalars(stmt)).unique().all()
 
@@ -260,7 +256,7 @@ class GetManyByOffset[E: Entity](ExtendedQueryWithFilters[E, OffsetPaginationRes
         *clauses: sa.ColumnExpressionArgument[bool],
         **kw: Any,
     ) -> sa.Select[tuple[E]]:
-        base_select = select_with_relationships(model=self.entity, loads=self._loads, **kw)
+        base_select = sqla_select(model=self.entity, loads=self._loads, **kw)
         pk = get_primary_key(self.entity)
         if not self._loads or not self.limit:
             self.add_clauses(*clauses)
@@ -401,7 +397,7 @@ class GetManyByCursor[E: Entity](ExtendedQueryWithFilters[E, CursorPaginationRes
             )
 
             query = (
-                select_with_relationships(model=self.entity, loads=self._loads, **kw)
+                sqla_select(model=self.entity, loads=self._loads, **kw)
                 .join(cte, pk == getattr(cte.c, pk.name))
                 .order_by(getattr(pk, self.order_by)())
                 .where(*clauses)
@@ -548,7 +544,7 @@ class IterChunked[E: Entity](ExtendedQueryWithFilters[E, AsyncIterator[E]]):
         self.add_clauses(*clauses)
 
         return (
-            select_with_relationships(model=self.entity, loads=self._loads, **kw)
+            sqla_select(model=self.entity, loads=self._loads, **kw)
             .order_by(getattr(pk, self.order_by)())
             .where(*self.clauses)
         )

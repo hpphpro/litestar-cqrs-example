@@ -39,7 +39,7 @@ class Permission(mixins.WithUUIDMixin, Entity):
     fields: orm.Mapped[list[permission_field.PermissionField]] = orm.relationship(
         "PermissionField",
         primaryjoin="Permission.id == foreign(PermissionField.permission_id)",
-        back_populates="permissions",
+        back_populates="permission",
         lazy="noload",
     )
 

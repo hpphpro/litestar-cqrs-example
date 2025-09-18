@@ -44,5 +44,5 @@ jobs:
           if [ "${{ matrix.task }}" = "lint" ]; then
             uv run pre-commit run --all-files
           else
-            uv run pytest -q tests
+            uv run pytest -v tests
           fi

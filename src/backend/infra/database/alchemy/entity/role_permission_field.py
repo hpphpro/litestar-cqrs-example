@@ -31,19 +31,19 @@ class RolePermissionField(mixins.WithTimeMixin, Entity):
     )
 
     # relationships
-    permission: orm.Mapped[permission.Permission] = orm.relationship(
+    permission: orm.Mapped[permission.Permission | None] = orm.relationship(
         "Permission",
         primaryjoin="foreign(RolePermissionField.permission_id) == Permission.id",
         lazy="noload",
         viewonly=True,
     )
-    role: orm.Mapped[role.Role] = orm.relationship(
+    role: orm.Mapped[role.Role | None] = orm.relationship(
         "Role",
         primaryjoin="foreign(RolePermissionField.role_id) == Role.id",
         lazy="noload",
         viewonly=True,
     )
-    field: orm.Mapped[permission_field.PermissionField] = orm.relationship(
+    field: orm.Mapped[permission_field.PermissionField | None] = orm.relationship(
         "PermissionField",
         primaryjoin="foreign(RolePermissionField.field_id) == PermissionField.id",
         lazy="noload",
