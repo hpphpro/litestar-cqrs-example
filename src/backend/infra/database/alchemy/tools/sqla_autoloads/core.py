@@ -515,7 +515,7 @@ def _select_with_relationships[T: orm.DeclarativeBase](
         params.query,
         params.node,
     )
-    if orm.DeclarativeBase in model.__bases__ or model is orm.DeclarativeBase:
+    if orm.DeclarativeBase in getattr(model, "__bases__", ()) or model is orm.DeclarativeBase:
         raise TypeError("model must not be orm.DeclarativeBase")
 
     if query is None:
@@ -539,6 +539,7 @@ def _select_with_relationships[T: orm.DeclarativeBase](
     return query.distinct() if params.distinct else query
 
 
+@lru_cache(maxsize=128)
 def _find_self_key[T: orm.DeclarativeBase](
     model: type[T],
 ) -> str:

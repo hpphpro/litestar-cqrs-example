@@ -101,7 +101,9 @@ def get_node(
     Raises:
         AssertionError: If base is not a subclass of orm.DeclarativeBase.
     """
-    assert orm.DeclarativeBase in base.__bases__, "base must be a subclass of orm.DeclarativeBase"
+    assert orm.DeclarativeBase in getattr(base, "__bases__", ()), (
+        "base must be a subclass of orm.DeclarativeBase"
+    )
 
     return frozendict({
         mapper.class_: tuple(mapper.relationships.values()) for mapper in base.registry.mappers
