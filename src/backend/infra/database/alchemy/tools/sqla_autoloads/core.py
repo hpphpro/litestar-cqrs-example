@@ -270,6 +270,7 @@ def _load_self[T: orm.DeclarativeBase](
             ),
             relationship.key,
             conditions,
+            replace_with,
         )
 
     load = _construct_strategy(orm.contains_eager, relationship, load, alias=alias)
