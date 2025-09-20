@@ -10,6 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.dialects import mssql, mysql, oracle, postgresql, sqlite
 from sqlalchemy.orm.util import LoaderCriteriaOption
+from sqlalchemy.sql import bindparam, elements, visitors
 from sqlalchemy.sql.selectable import LateralFromClause
 
 from .datastructures import frozendict
@@ -125,7 +126,7 @@ class _LoadParamsType[T: orm.DeclarativeBase](TypedDict, total=False):
     loads: tuple[str, ...]
     node: Node
     check_tables: bool
-    conditions: frozendict[str, Callable[[sa.Select[tuple[T]]], sa.Select[tuple[T]]]]
+    conditions: Mapping[str, Callable[[sa.Select[tuple[T]]], sa.Select[tuple[T]]]]
     self_key: str
     order_by: tuple[str, ...]
     query: sa.Select[tuple[T]]
@@ -295,6 +296,44 @@ def _replace(string: str, replace_with: tuple[str, str]) -> str:
     return string.replace(*replace_with)
 
 
+def _set_default_bind_param(
+    orig_binds: dict[str, elements.BindParameter[Any]],
+) -> Callable[[elements.BindParameter[Any]], None]:
+    def _inner(bp: elements.BindParameter[Any]) -> None:
+        orig_binds.setdefault(bp.key, bp)
+
+    return _inner
+
+
+def _get_bindparams(
+    clause: elements.ColumnElement[Any], compiled: sa.Compiled
+) -> list[elements.BindParameter[Any]]:
+    """
+    Build BindParameter objects for a compiled clause, preserving types.
+
+    Traverses the original SQL expression to collect its BindParameter nodes
+    (to reuse their type information), then recreates parameters using values
+    from the compiled statement. This is useful when turning a clause into
+    text via `sa.text(...)` and we need to re-bind parameters with correct
+    SQLAlchemy types.
+
+    Args:
+        clause: Original SQL expression tree that was compiled.
+        compiled: Result of `clause.compile(...)`; its ``.params`` supply values.
+
+    Returns:
+        List of ``bindparam(...)`` objects with names/values from ``compiled.params``
+        and types taken from the original bind parameters when available.
+    """
+    orig_binds: dict[str, elements.BindParameter[Any]] = {}
+    visitors.traverse(clause, {}, {"bindparam": _set_default_bind_param(orig_binds)})
+
+    return [
+        bindparam(name, value=val, type_=bp.type if (bp := orig_binds.get(name)) else None)
+        for name, val in (compiled.params or {}).items()
+    ]
+
+
 def _apply_conditions[T: orm.DeclarativeBase](
     query: sa.Select[tuple[T]],
     key: str,
@@ -321,7 +360,13 @@ def _apply_conditions[T: orm.DeclarativeBase](
     q = condition(query) if conditions and (condition := conditions.get(key)) else query
     if replace_with and (clause := q.whereclause) is not None:
         q._where_criteria = ()  # noqa: SLF001
-        q = q.where(sa.text(reduce(_replace, replace_with, str(clause))))
+        compiled = clause.compile(compile_kwargs={"render_postcompile": True})
+
+        q = q.where(
+            sa.text(reduce(_replace, replace_with, str(compiled))).bindparams(
+                *_get_bindparams(clause, compiled)
+            )
+        )
 
     return q
 
@@ -395,6 +440,8 @@ def _load_relationship[T: orm.DeclarativeBase](
             )
 
             if relationship.secondary is not None and relationship.secondaryjoin is not None:
+                # literal_binds=True is generally unsafe if user input is involved.
+                # Safe here because primary/secondary join clauses are static (metadata-generated).
                 compiled = str(
                     relationship.secondaryjoin.compile(compile_kwargs={"literal_binds": True})
                 )
