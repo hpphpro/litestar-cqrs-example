@@ -606,6 +606,7 @@ def _find_self_key[T: orm.DeclarativeBase](
             fk.parent.name
             for fk in model.__table__.foreign_keys
             if get_primary_key(model).name == fk.column.name
+            and fk.column.table.name == fk.parent.table.name
         ),
         "",
     )
